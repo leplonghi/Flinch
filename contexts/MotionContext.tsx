@@ -19,6 +19,7 @@ export interface DetailedHandData {
   isFlat: boolean;
   spread: number;
   jitter: number;
+  wristFlexion: number;
 }
 
 interface MotionContextType {
@@ -50,7 +51,7 @@ export const MotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [poseLandmarks, setPoseLandmarks] = useState<any[] | null>(null);
   const [showDebug, setShowDebug] = useState(false);
   const [detailedData, setDetailedData] = useState<DetailedHandData>({ 
-    flexion: [0,0,0,0,0], wristRotation: 0, isFlat: true, spread: 0, jitter: 0 
+    flexion: [0,0,0,0,0], wristRotation: 0, isFlat: true, spread: 0, jitter: 0, wristFlexion: 0
   });
   const [metrics, setMetrics] = useState({ fps: 0, stability: 0, isHealthy: false });
 
@@ -59,7 +60,7 @@ export const MotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const cameraRef = useRef<any>(null);
   const fpsEMA = useRef(new EMA(0.1));
   const lastFrameTime = useRef(performance.now());
-  const lastHandPoints = useRef<any[] | null>(null);
+  const jitterEMA = useRef(new EMA(0.2));
 
   const onResults = (results: any) => {
     const now = performance.now();
@@ -67,19 +68,29 @@ export const MotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     lastFrameTime.current = now;
     const smoothFps = fpsEMA.current.update(1000 / dt);
 
+    let currentConfidence = 0;
+
     // Mão Direita (Principal para o FLINCH)
     if (results.rightHandLandmarks) {
       setIsHandDetected(true);
       setRawLandmarks(results.rightHandLandmarks);
-      // Simulação simplificada de pose para manter compatibilidade
+      
       const wrist = results.rightHandLandmarks[0];
       const index = results.rightHandLandmarks[8];
       const isPointing = index.y < results.rightHandLandmarks[6].y;
       setCurrentPose(isPointing ? "POINT" : "OPEN");
-      setConfidence(95);
+      
+      // Calculate a basic confidence score
+      // If landmarks are close to the edge, confidence drops
+      const edgeThreshold = 0.05;
+      const isNearEdge = wrist.x < edgeThreshold || wrist.x > (1 - edgeThreshold) || wrist.y < edgeThreshold || wrist.y > (1 - edgeThreshold);
+      
+      currentConfidence = isNearEdge ? 65 : 98;
+      setConfidence(currentConfidence);
     } else {
       setIsHandDetected(false);
       setRawLandmarks(null);
+      setConfidence(0);
     }
 
     // Face e Pose (Corpo)
@@ -88,8 +99,8 @@ export const MotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setMetrics({
       fps: Math.round(smoothFps),
-      stability: 100,
-      isHealthy: true
+      stability: currentConfidence,
+      isHealthy: smoothFps > 15
     });
   };
 

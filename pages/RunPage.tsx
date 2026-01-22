@@ -120,7 +120,7 @@ const RunPage: React.FC = () => {
           ctx.closePath();
           ctx.stroke();
 
-          // Boca (Contorno Externo indices: 61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95)
+          // Boca (Contorno Externo)
           const mouthIndices = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
           ctx.beginPath();
           mouthIndices.forEach((idx, i) => {
@@ -134,27 +134,24 @@ const RunPage: React.FC = () => {
         if (poseLandmarks && faceLandmarks) {
           ctx.lineWidth = 4;
           ctx.strokeStyle = accent;
-          ctx.setLineDash([5, 5]); // Estilo futurista tracejado para o pescoço
+          ctx.setLineDash([5, 5]);
 
-          const nose = getProjectedCoords(faceLandmarks[1], video, canvas.width, canvas.height); // Ponta do nariz como centro cabeça
+          const nose = getProjectedCoords(faceLandmarks[1], video, canvas.width, canvas.height);
           const leftShoulder = getProjectedCoords(poseLandmarks[11], video, canvas.width, canvas.height);
           const rightShoulder = getProjectedCoords(poseLandmarks[12], video, canvas.width, canvas.height);
           const neckBase = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
 
-          // Linha do Pescoço (Cabeça para base ombros)
           ctx.beginPath();
-          ctx.moveTo(nose.x, nose.y + 20); // Começa um pouco abaixo do nariz
+          ctx.moveTo(nose.x, nose.y + 20);
           ctx.lineTo(neckBase.x, neckBase.y);
           ctx.stroke();
 
-          // Linha dos Ombros
           ctx.setLineDash([]);
           ctx.beginPath();
           ctx.moveTo(leftShoulder.x, leftShoulder.y);
           ctx.lineTo(rightShoulder.x, rightShoulder.y);
           ctx.stroke();
 
-          // Nodos das articulações
           [leftShoulder, rightShoulder].forEach(p => {
              ctx.beginPath();
              ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
@@ -171,6 +168,15 @@ const RunPage: React.FC = () => {
 
   if (!challenge) return null;
 
+  // Determine status display details
+  const getStatusDetails = () => {
+    if (!isHandDetected) return { label: 'SYNC_LOSS', color: 'bg-brand-danger', shadow: 'shadow-[0_0_15px_#ff3333]', pulse: false };
+    if (confidence < 80) return { label: 'SIGNAL_WEAK', color: 'bg-orange-500', shadow: 'shadow-[0_0_15px_#f97316]', pulse: true };
+    return { label: 'SYNCED', color: 'bg-brand-accent', shadow: 'shadow-[0_0_15px_#ccff00]', pulse: true };
+  };
+
+  const status = getStatusDetails();
+
   return (
     <div ref={containerRef} className="h-full bg-brand-black relative overflow-hidden select-none flex flex-col items-center">
       <div className="absolute inset-0 z-0">
@@ -180,17 +186,32 @@ const RunPage: React.FC = () => {
 
       <canvas ref={canvasRef} className="absolute inset-0 z-10 pointer-events-none" />
 
-      {/* Telemetria de Bio-Link */}
-      <div className="absolute top-8 left-8 z-50">
-        <div className="flex flex-col gap-1">
+      {/* Enhanced Neural Link Status Indicator */}
+      <div className="absolute top-8 left-0 right-0 z-50 flex justify-center px-8 pointer-events-none">
+        <motion.div 
+          animate={status.pulse ? { opacity: [0.7, 1, 0.7] } : { opacity: 1 }}
+          transition={status.pulse ? { repeat: Infinity, duration: 2 } : {}}
+          className={`flex items-center gap-4 bg-brand-black/80 backdrop-blur-xl border border-white/10 px-6 py-2.5 rounded-full shadow-2xl transition-all duration-300`}
+        >
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isHandDetected && faceLandmarks ? 'bg-brand-accent animate-pulse' : 'bg-brand-danger'}`} />
-            <span className="text-[10px] font-black tracking-widest text-white/80 uppercase">
-              {isHandDetected && faceLandmarks ? 'NEURAL_HOLISTIC_LINK: STABLE' : 'SEARCHING_BIO_SIGNATURE'}
+            <div className={`w-2.5 h-2.5 rounded-full ${status.color} ${status.shadow} ${status.pulse ? 'animate-pulse' : ''}`} />
+            <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase italic">
+              {status.label}
             </span>
           </div>
-          <p className="text-[8px] font-bold text-white/20 uppercase">Core_FPS: {metrics.fps}</p>
-        </div>
+          <div className="h-4 w-px bg-white/10" />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black text-white/30 uppercase leading-none mb-0.5">Confidence</span>
+            <span className={`text-[10px] font-black italic tracking-tighter ${confidence > 80 ? 'text-brand-accent' : confidence > 50 ? 'text-orange-400' : 'text-brand-danger'}`}>
+              {Math.round(confidence)}%
+            </span>
+          </div>
+          <div className="h-4 w-px bg-white/10" />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black text-white/30 uppercase leading-none mb-0.5">FPS</span>
+            <span className="text-[10px] font-black italic text-white/80">{metrics.fps}</span>
+          </div>
+        </motion.div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -231,9 +252,9 @@ const RunPage: React.FC = () => {
         )}
 
         {gameState === 'PLAYING' && (
-           <div className="z-20 w-full h-full flex flex-col items-center pt-24 pointer-events-none">
-              <h2 className="text-[10rem] font-black italic text-white drop-shadow-2xl">{combo}</h2>
-              <p className="text-xs font-black text-brand-accent tracking-[0.5em] uppercase">Holistic_Sync</p>
+           <div className="z-20 w-full h-full flex flex-col items-center pt-32 pointer-events-none">
+              <h2 className="text-[10rem] font-black italic text-white drop-shadow-2xl leading-none">{combo}</h2>
+              <p className="text-sm font-black text-brand-accent tracking-[0.5em] uppercase">Holistic_Sync</p>
            </div>
         )}
       </AnimatePresence>
