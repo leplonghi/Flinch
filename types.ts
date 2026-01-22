@@ -1,9 +1,8 @@
 
-export type Pose = "OPEN" | "FIST" | "PINCH" | "POINT";
+export type Pose = "OPEN" | "FIST" | "PINCH" | "POINT" | "WAVE";
 export type Target = "C" | "L" | "R" | "U" | "D"; // Center, Left, Right, Up, Down
 
-// Export ChallengeType to fix error in PlayPage.tsx
-export type ChallengeType = 'BLINK' | 'HOLD' | 'SNAP' | 'DANCE';
+export type ChallengeType = 'BLINK' | 'HOLD' | 'SNAP' | 'DANCE' | 'COMBAT';
 
 export interface ChoreographyStep {
   timeMs: number;
@@ -17,12 +16,16 @@ export interface ChallengeDefinition {
   id: string;
   name: string;
   type: ChallengeType;
-  difficulty: 'EASY' | 'MID' | 'PRO';
+  difficulty: 'EASY' | 'MID' | 'PRO' | 'ELITE';
   bpm: number;
   durationMs: number;
   accentColor: string;
+  description: string;
+  detailedDescription: string;
+  posesRequired: Pose[];
+  xpReward: number;
+  category: 'VELOCITY' | 'STABILITY' | 'PRECISION' | 'RHYTHM';
   choreography: ChoreographyStep[];
-  // Added properties to fix errors in PlayPage.tsx
   bestTime: string;
   activePlayers: number;
 }

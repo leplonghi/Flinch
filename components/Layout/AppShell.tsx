@@ -3,6 +3,7 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
+import DebugOverlay from '../UI/DebugOverlay';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AppShellProps {
@@ -35,6 +36,8 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
       <main className={`flex-1 overflow-y-auto scrollbar-hide ${!isFullScreenMode ? 'pb-28 px-6 pt-2' : ''}`}>
         {children}
       </main>
+
+      <DebugOverlay />
 
       <AnimatePresence mode="wait">
         {!isFullScreenMode && (

@@ -4,94 +4,27 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import { OFFICIAL_CHALLENGES } from '../data/challenges';
-import { ChallengeType } from '../types';
+import { ChallengeType, Pose } from '../types';
 
-// Updated PreviewLoop to handle previews based on challenge ID as well as Type
-const PreviewLoop: React.FC<{ type: ChallengeType; id: string; color: string }> = ({ type, id, color }) => {
-  const checkType = id.toUpperCase();
-  
-  if (checkType.includes('BLINK')) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-brand-black/50 rounded-2xl overflow-hidden relative border border-white/5">
-        <motion.div 
-          animate={{ scale: [1, 1.6, 1], opacity: [0.2, 0.8, 0.2] }}
-          transition={{ repeat: Infinity, duration: 1, ease: "easeInOut" }}
-          className="w-12 h-12 rounded-full blur-xl"
-          style={{ backgroundColor: color }}
-        />
-        <motion.div 
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-          className="w-6 h-6 rounded-full border-2 z-10"
-          style={{ borderColor: color }}
-        />
-      </div>
-    );
+const PoseIcon: React.FC<{ pose: Pose; size?: string; color?: string }> = ({ pose, size = "w-4 h-4", color = "currentColor" }) => {
+  switch (pose) {
+    case 'FIST':
+      return <svg className={size} fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 24"><path d="M12 10V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M16 10V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M8 10V8a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M18 13V9a2 2 0 0 0-2-2v0M18 13a6 6 0 0 1-6 6H8.5L5 15.5a2 2 0 0 1 2.83-2.82l2.17 2.17" /></svg>;
+    case 'POINT':
+      return <svg className={size} fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 24"><path d="M10 13V6a2 2 0 0 1 4 0v7M18 11V9a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15M14 11V9a2 2 0 1 1 4 0" /></svg>;
+    case 'OPEN':
+      return <svg className={size} fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15M6 10V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" /></svg>;
+    case 'WAVE':
+      return <svg className={size} fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>;
+    default: return null;
   }
-  if (checkType.includes('HOLD') || checkType.includes('LOCK')) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-brand-black/50 rounded-2xl p-4 gap-2 border border-white/5">
-        <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-          <motion.div 
-            animate={{ width: ['0%', '100%', '0%'] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "anticipate" }}
-            className="h-full"
-            style={{ backgroundColor: color }}
-          />
-        </div>
-        <div className="flex gap-1">
-          {[0,1,2].map(i => <div key={i} className="w-1 h-1 rounded-full bg-white/20" />)}
-        </div>
-      </div>
-    );
-  }
-  if (checkType.includes('SNAP') || checkType.includes('LASER') || checkType.includes('CHAOS') || checkType.includes('SWITCH')) {
-    return (
-      <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-1.5 bg-brand-black/50 rounded-2xl p-3 border border-white/5">
-        {[0, 1, 2, 3].map(i => (
-          <motion.div 
-            key={i}
-            animate={{ opacity: [0.1, 1, 0.1], scale: [0.8, 1, 0.8] }}
-            transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.2 }}
-            className="rounded-lg"
-            style={{ backgroundColor: color }}
-          />
-        ))}
-      </div>
-    );
-  }
-  // Fallback for general DANCE challenges
-  return (
-    <div className="w-full h-full flex items-center justify-center bg-brand-black/50 rounded-2xl border border-white/5">
-      <motion.div 
-        animate={{ rotate: 360, borderRadius: ["20%", "50%", "20%"] }}
-        transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-        className="w-10 h-10 border-2 border-brand-accent/40"
-        style={{ borderColor: color }}
-      />
-    </div>
-  );
 };
 
 const PlayPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1, delayChildren: 0.2 }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 20, scale: 0.95 },
-    show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", bounce: 0.4 } }
-  };
-
   return (
     <div className="space-y-12 pb-20 pt-4">
-      {/* Enhanced Hero */}
       <motion.section 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -101,67 +34,101 @@ const PlayPage: React.FC = () => {
           onClick={() => navigate('/run/blink')}
           className="relative h-72 rounded-[3.5rem] overflow-hidden bg-brand-accent cursor-pointer flex flex-col justify-end p-10 group active:scale-[0.98] transition-transform shadow-[0_30px_60px_-15px_rgba(204,255,0,0.3)]"
         >
-          {/* Animated Glow Backdrop */}
-          <motion.div 
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ repeat: Infinity, duration: 3 }}
-            className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent" 
-          />
-          
           <div className="absolute top-10 right-10">
             <div className="flex items-center gap-2 bg-brand-black/90 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
               <div className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
-              <span className="text-[10px] font-black tracking-[0.2em] text-white">LIVE_EVENT</span>
+              <span className="text-[10px] font-black tracking-[0.2em] text-white">EVENTO_ATIVO</span>
             </div>
           </div>
           
           <div className="relative z-10 text-brand-black">
-            <h2 className="text-[5.5rem] font-black font-heading leading-[0.75] tracking-tighter mb-4 italic uppercase">
+            <h2 className="text-[5rem] font-black font-heading leading-[0.75] tracking-tighter mb-4 italic uppercase">
               FLASH<br />POINT
             </h2>
             <div className="flex items-center gap-3">
-              <span className="text-[11px] font-black uppercase tracking-[0.3em] bg-brand-black text-brand-accent px-3 py-1">SEASON 01</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.3em] bg-brand-black text-brand-accent px-3 py-1">TEMPORADA 01</span>
               <span className="text-[11px] font-black uppercase tracking-[0.3em] opacity-40 italic">Global Grid</span>
             </div>
-          </div>
-
-          <div className="absolute inset-0 opacity-[0.08] pointer-events-none select-none flex items-center overflow-hidden">
-             <motion.p 
-               animate={{ x: [0, -1000] }}
-               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-               className="text-[15rem] font-black italic whitespace-nowrap leading-none"
-             >
-               FLINCH FLINCH FLINCH FLINCH FLINCH FLINCH FLINCH FLINCH
-             </motion.p>
           </div>
         </div>
       </motion.section>
 
-      {/* Modes Grid */}
-      <motion.section 
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="space-y-8"
-      >
+      <section className="space-y-8">
         <div className="flex justify-between items-end px-2">
           <div className="space-y-1">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">Active Drills</h3>
-            <p className="text-sm font-black italic tracking-tight">STRIKE FAST. STAY STEADY.</p>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">Operações Disponíveis</h3>
+            <p className="text-sm font-black italic tracking-tight">SELECIONE SEU VETOR DE ATAQUE</p>
           </div>
-          <div className="w-12 h-0.5 bg-brand-accent/20" />
         </div>
         
-        <div className="grid grid-cols-1 gap-5">
+        <div className="grid grid-cols-1 gap-6">
           {OFFICIAL_CHALLENGES.map((challenge) => (
-            <motion.div key={challenge.id} variants={item}>
+            <motion.div 
+              key={challenge.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
               <Card 
                 onClick={() => navigate(`/run/${challenge.id}`)}
-                className="group p-6 border-white/5 bg-brand-surface/60 backdrop-blur-md hover:bg-brand-muted/80 transition-all duration-300 rounded-[2.5rem]"
+                className="group p-0 overflow-hidden border-white/5 bg-brand-surface/40 backdrop-blur-md hover:bg-brand-muted/80 transition-all duration-300 rounded-[2.5rem]"
               >
-                <div className="flex gap-6 items-center">
-                  <div className="w-24 h-24 flex-shrink-0">
-                    <PreviewLoop type={challenge.type} id={challenge.id} color={challenge.accentColor} />
+                <div className="p-6 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                         <span className={`text-[9px] font-black px-2 py-0.5 rounded-sm uppercase tracking-wider bg-brand-black`} style={{ color: challenge.accentColor }}>
+                           {challenge.category}
+                         </span>
+                         <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{challenge.difficulty} TIER</span>
+                      </div>
+                      <h4 className="text-2xl font-black font-heading tracking-tighter group-hover:text-brand-accent transition-colors italic uppercase">
+                        {challenge.name.split(' · ')[1]}
+                      </h4>
+                    </div>
+                    <div className="text-right">
+                       <p className="text-[10px] font-black text-white/20 uppercase">Reward</p>
+                       <p className="text-sm font-black text-brand-accent">+{challenge.xpReward} XP</p>
+                    </div>
                   </div>
-                  
-                  <div className="flex-1 space-
+
+                  <p className="text-xs text-white/50 leading-relaxed font-medium pr-4">
+                    {challenge.description}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                    <div className="flex gap-4 items-center">
+                       <div className="flex -space-x-1">
+                          {challenge.posesRequired.map(pose => (
+                            <div key={pose} className="w-7 h-7 rounded-full bg-brand-black border border-white/10 flex items-center justify-center text-white/40 group-hover:text-brand-accent transition-colors">
+                              <PoseIcon pose={pose} size="w-3.5 h-3.5" />
+                            </div>
+                          ))}
+                       </div>
+                       <div className="h-4 w-px bg-white/10" />
+                       <div className="flex flex-col">
+                          <span className="text-[8px] text-white/20 font-black uppercase">Frequência</span>
+                          <span className="text-[10px] font-black text-white/80 tracking-tighter">{challenge.bpm} BPM</span>
+                       </div>
+                    </div>
+                    
+                    <div className="bg-brand-accent/10 p-2.5 rounded-full group-hover:bg-brand-accent group-hover:text-brand-black transition-all">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <footer className="px-2 py-10 opacity-10 flex flex-col items-center">
+         <h1 className="text-4xl font-black italic tracking-tighter">FLINCH.</h1>
+         <p className="text-[8px] font-black uppercase tracking-[0.5em]">Global Reaction Network</p>
+      </footer>
+    </div>
+  );
+};
+
+export default PlayPage;

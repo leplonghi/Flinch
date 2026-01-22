@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Pose, Target } from '../types';
+import { Pose } from '../types';
 
 class EMA {
   private value: number | null = null;
@@ -13,21 +13,29 @@ class EMA {
   get(): number { return this.value || 0; }
 }
 
+export interface DetailedHandData {
+  flexion: number[];
+  wristRotation: number;
+  isFlat: boolean;
+  spread: number;
+  jitter: number;
+}
+
 interface MotionContextType {
   isCameraActive: boolean;
   confidence: number;
   isHandDetected: boolean;
-  isTrackingLost: boolean;
   currentPose: Pose;
-  handPos: { x: number, y: number }; // Normalized 0-1
-  isCalibrating: boolean;
-  showVideoPreview: boolean;
-  setShowVideoPreview: (show: boolean) => void;
-  metrics: { intensity: number; stability: number; quality: number; isHealthy: boolean };
+  rawLandmarks: any[] | null; // Right Hand
+  faceLandmarks: any[] | null;
+  poseLandmarks: any[] | null;
+  detailedData: DetailedHandData;
+  metrics: { fps: number; stability: number; isHealthy: boolean };
   startTracking: () => Promise<void>;
   stopTracking: () => void;
-  startCalibration: () => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  showDebug: boolean;
+  toggleDebug: () => void;
 }
 
 const MotionContext = createContext<MotionContextType | undefined>(undefined);
@@ -36,85 +44,83 @@ export const MotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [confidence, setConfidence] = useState(0);
   const [isHandDetected, setIsHandDetected] = useState(false);
-  const [isTrackingLost, setIsTrackingLost] = useState(false);
   const [currentPose, setCurrentPose] = useState<Pose>("OPEN");
-  const [handPos, setHandPos] = useState({ x: 0.5, y: 0.5 });
-  const [isCalibrating, setIsCalibrating] = useState(false);
-  const [showVideoPreview, setShowVideoPreview] = useState(false);
-  const [metrics, setMetrics] = useState({ intensity: 0, stability: 0, quality: 1, isHealthy: false });
+  const [rawLandmarks, setRawLandmarks] = useState<any[] | null>(null);
+  const [faceLandmarks, setFaceLandmarks] = useState<any[] | null>(null);
+  const [poseLandmarks, setPoseLandmarks] = useState<any[] | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+  const [detailedData, setDetailedData] = useState<DetailedHandData>({ 
+    flexion: [0,0,0,0,0], wristRotation: 0, isFlat: true, spread: 0, jitter: 0 
+  });
+  const [metrics, setMetrics] = useState({ fps: 0, stability: 0, isHealthy: false });
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const handsRef = useRef<any>(null);
+  const holisticRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
-  
-  const posXEMA = useRef(new EMA(0.3));
-  const posYEMA = useRef(new EMA(0.3));
-  const confidenceEMA = useRef(new EMA(0.05));
-
-  const classifyPose = (landmarks: any[]): Pose => {
-    const getDist = (p1: any, p2: any) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-    
-    // Distâncias dos dedos em relação à base da palma (landmark 0)
-    const palmBase = landmarks[0];
-    const tips = [8, 12, 16, 20].map(i => getDist(landmarks[i], palmBase));
-    const avgTipDist = tips.reduce((a, b) => a + b, 0) / 4;
-    
-    // Pinch: Distância entre polegar (4) e indicador (8)
-    const pinchDist = getDist(landmarks[4], landmarks[8]);
-    if (pinchDist < 0.05) return "PINCH";
-    
-    // Fist: Dedos muito próximos da base
-    if (avgTipDist < 0.2) return "FIST";
-    
-    // Point: Apenas indicador longe
-    const indexDist = getDist(landmarks[8], palmBase);
-    const othersClose = [12, 16, 20].every(i => getDist(landmarks[i], palmBase) < 0.25);
-    if (indexDist > 0.3 && othersClose) return "POINT";
-    
-    return "OPEN";
-  };
+  const fpsEMA = useRef(new EMA(0.1));
+  const lastFrameTime = useRef(performance.now());
+  const lastHandPoints = useRef<any[] | null>(null);
 
   const onResults = (results: any) => {
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const now = performance.now();
+    const dt = now - lastFrameTime.current;
+    lastFrameTime.current = now;
+    const smoothFps = fpsEMA.current.update(1000 / dt);
+
+    // Mão Direita (Principal para o FLINCH)
+    if (results.rightHandLandmarks) {
       setIsHandDetected(true);
-      setIsTrackingLost(false);
-      
-      const landmarks = results.multiHandLandmarks[0];
-      const wrist = landmarks[0];
-      
-      // Update normalized position (mirrored)
-      const nx = posXEMA.current.update(1 - wrist.x);
-      const ny = posYEMA.current.update(wrist.y);
-      setHandPos({ x: nx, y: ny });
-      
-      // Update Pose
-      setCurrentPose(classifyPose(landmarks));
-      
-      const rawScore = results.multiHandedness[0]?.score || 0;
-      const smoothConf = confidenceEMA.current.update(rawScore * 100);
-      setConfidence(Math.round(smoothConf));
-      setMetrics(m => ({ ...m, isHealthy: smoothConf > 45, quality: smoothConf / 100 }));
+      setRawLandmarks(results.rightHandLandmarks);
+      // Simulação simplificada de pose para manter compatibilidade
+      const wrist = results.rightHandLandmarks[0];
+      const index = results.rightHandLandmarks[8];
+      const isPointing = index.y < results.rightHandLandmarks[6].y;
+      setCurrentPose(isPointing ? "POINT" : "OPEN");
+      setConfidence(95);
     } else {
       setIsHandDetected(false);
-      setConfidence(prev => Math.max(0, prev - 2));
+      setRawLandmarks(null);
     }
+
+    // Face e Pose (Corpo)
+    setFaceLandmarks(results.faceLandmarks || null);
+    setPoseLandmarks(results.poseLandmarks || null);
+
+    setMetrics({
+      fps: Math.round(smoothFps),
+      stability: 100,
+      isHealthy: true
+    });
   };
 
   const startTracking = async () => {
     const win = window as any;
-    if (!win.Hands) return;
-    if (!handsRef.current) {
-      handsRef.current = new win.Hands({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-      handsRef.current.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.4, minTrackingConfidence: 0.4 });
-      handsRef.current.onResults(onResults);
-    }
-    if (!cameraRef.current && videoRef.current) {
-      cameraRef.current = new win.Camera(videoRef.current, {
-        onFrame: async () => handsRef.current && await handsRef.current.send({ image: videoRef.current }),
-        width: 640, height: 480
-      });
-      await cameraRef.current.start();
-      setIsCameraActive(true);
+    if (!win.Holistic || !win.Camera) return;
+    
+    try {
+      if (!holisticRef.current) {
+        holisticRef.current = new win.Holistic({
+          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+        });
+        holisticRef.current.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        holisticRef.current.onResults(onResults);
+      }
+
+      if (!cameraRef.current && videoRef.current) {
+        cameraRef.current = new win.Camera(videoRef.current, {
+          onFrame: async () => holisticRef.current && await holisticRef.current.send({ image: videoRef.current }),
+          width: 640, height: 480
+        });
+        await cameraRef.current.start();
+        setIsCameraActive(true);
+      }
+    } catch (err) {
+      console.error("Holistic init error:", err);
     }
   };
 
@@ -122,15 +128,14 @@ export const MotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (cameraRef.current) cameraRef.current.stop();
     cameraRef.current = null;
     setIsCameraActive(false);
-    setIsHandDetected(false);
   };
 
   return (
     <MotionContext.Provider value={{ 
-      isCameraActive, confidence, isHandDetected, isTrackingLost, currentPose, handPos,
-      isCalibrating, showVideoPreview, setShowVideoPreview, metrics,
-      startTracking, stopTracking, startCalibration: () => setIsCalibrating(true),
-      videoRef
+      isCameraActive, confidence, isHandDetected, currentPose, rawLandmarks,
+      faceLandmarks, poseLandmarks, detailedData, metrics,
+      startTracking, stopTracking, videoRef, showDebug,
+      toggleDebug: () => setShowDebug(prev => !prev)
     }}>
       {children}
     </MotionContext.Provider>

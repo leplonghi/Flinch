@@ -1,17 +1,37 @@
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useMotion } from '../../contexts/MotionContext';
 import { useNavigate } from 'react-router-dom';
 
 const Header: React.FC = () => {
   const { user, openAuthModal } = useAuth();
+  const { toggleDebug } = useMotion();
   const navigate = useNavigate();
+  
+  const clickCount = useRef(0);
+  const clickTimer = useRef<number | null>(null);
+
+  const handleLogoClick = () => {
+    clickCount.current += 1;
+    if (clickTimer.current) window.clearTimeout(clickTimer.current);
+    
+    if (clickCount.current === 3) {
+      toggleDebug();
+      clickCount.current = 0;
+    } else {
+      clickTimer.current = window.setTimeout(() => {
+        clickCount.current = 0;
+        navigate('/play');
+      }, 300);
+    }
+  };
 
   return (
     <header className="px-6 py-4 flex items-center justify-between bg-brand-black/80 backdrop-blur-md sticky top-0 z-50">
       <h1 
-        onClick={() => navigate('/play')}
-        className="text-2xl font-black font-heading tracking-tighter text-brand-white cursor-pointer"
+        onClick={handleLogoClick}
+        className="text-2xl font-black font-heading tracking-tighter text-brand-white cursor-pointer select-none"
       >
         FLINCH<span className="text-brand-accent">.</span>
       </h1>

@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <!-- MediaPipe Scripts - Standard Stable Versions -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <!-- MediaPipe Holistic - Complete Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
     <script>
@@ -22,7 +22,7 @@
                         brand: {
                             black: '#0a0a0a',
                             white: '#ffffff',
-                            accent: '#ccff00', // Electric Lime
+                            accent: '#ccff00', 
                             muted: '#1a1a1a',
                             surface: '#121212',
                             danger: '#ff3333'
@@ -57,14 +57,8 @@
         .aggressive-ease {
             transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
         }
-        /* Custom scrollbar for better aesthetics */
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 <script type="importmap">
 {
