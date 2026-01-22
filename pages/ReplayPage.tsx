@@ -3,13 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { firestoreService, RunData } from '../services/firestore';
-import { ReplayFrame } from '../types';
+import { ReplayKeyframe } from '../types';
 
 const ReplayPage: React.FC = () => {
   const navigate = useNavigate();
   const { runId } = useParams<{ runId: string }>();
   const [run, setRun] = useState<RunData | null>(null);
-  const [frame, setFrame] = useState<ReplayFrame | null>(null);
+  const [frame, setFrame] = useState<ReplayKeyframe | null>(null);
   const [isDone, setIsDone] = useState(false);
 
   useEffect(() => {
@@ -18,7 +18,7 @@ const ReplayPage: React.FC = () => {
 
   useEffect(() => {
     if (!run?.replayLog?.fullLog) return;
-    const log = run.replayLog.fullLog as ReplayFrame[];
+    const log = run.replayLog.fullLog as ReplayKeyframe[];
     let idx = 0;
     
     const interval = setInterval(() => {

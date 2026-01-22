@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import { OFFICIAL_CHALLENGES } from '../data/challenges';
-import { ChallengeType, Pose } from '../types';
+// Removed unused ChallengeType import
+import { Pose } from '../types';
 
 const PoseIcon: React.FC<{ pose: Pose; size?: string; color?: string }> = ({ pose, size = "w-4 h-4", color = "currentColor" }) => {
   switch (pose) {

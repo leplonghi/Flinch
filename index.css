@@ -1,0 +1,55 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .animate-slide-up {
+    animation: slideUp 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  .animate-slide-left {
+    animation: slideLeft 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glass-panel {
+    @apply bg-brand-surface/60 backdrop-blur-2xl border border-white/10;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-4px, 4px); }
+  50% { transform: translate(4px, -4px); }
+  75% { transform: translate(-4px, -4px); }
+}
+
+.shake-it {
+  animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+}

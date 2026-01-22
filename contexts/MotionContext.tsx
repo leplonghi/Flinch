@@ -1,160 +1,271 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Pose } from '../types';
-
-class EMA {
-  private value: number | null = null;
-  constructor(private alpha: number = 0.15) {}
-  update(next: number): number {
-    if (this.value === null) this.value = next;
-    else this.value = this.alpha * next + (1 - this.alpha) * this.value;
-    return this.value;
-  }
-  get(): number { return this.value || 0; }
-}
-
-export interface DetailedHandData {
-  flexion: number[];
-  wristRotation: number;
-  isFlat: boolean;
-  spread: number;
-  jitter: number;
-  wristFlexion: number;
-}
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { Pose, Target, HandLandmark } from '../types';
+import { PoseClassifier } from '../services/PoseClassifier';
+import { TargetMapper } from '../services/TargetMapper';
+import { AdaptiveEMA } from '../services/AdaptiveEMA';
 
 interface MotionContextType {
-  isCameraActive: boolean;
-  confidence: number;
-  isHandDetected: boolean;
   currentPose: Pose;
-  rawLandmarks: any[] | null; // Right Hand
+  currentTarget: Target;
+  isReady: boolean;
+  isTracking: boolean;
+  isHandDetected: boolean;
+  showDebug: boolean;
+  error: string | null;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  confidence: number;
+  rawLandmarks: HandLandmark[] | null;
   faceLandmarks: any[] | null;
   poseLandmarks: any[] | null;
-  detailedData: DetailedHandData;
-  metrics: { fps: number; stability: number; isHealthy: boolean };
-  startTracking: () => Promise<void>;
+  metrics: {
+    fps: number;
+    isHealthy: boolean;
+  };
+  detailedData: {
+    jitter: number;
+    wristRotation: number;
+    wristFlexion: number;
+    flexion: number[];
+  };
+  startTracking: () => void;
   stopTracking: () => void;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  showDebug: boolean;
   toggleDebug: () => void;
+  isCalibrating: boolean;
 }
 
-const MotionContext = createContext<MotionContextType | undefined>(undefined);
+const MotionContext = createContext<MotionContextType | null>(null);
 
-export const MotionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [confidence, setConfidence] = useState(0);
+export function useMotion() {
+  const context = useContext(MotionContext);
+  if (!context) throw new Error('useMotion must be used within MotionProvider');
+  return context;
+}
+
+export function MotionProvider({ children }: { children?: React.ReactNode }) {
+  const [currentPose, setCurrentPose] = useState<Pose>('OPEN');
+  const [currentTarget, setCurrentTarget] = useState<Target>('C');
+  const [isReady, setIsReady] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
   const [isHandDetected, setIsHandDetected] = useState(false);
-  const [currentPose, setCurrentPose] = useState<Pose>("OPEN");
-  const [rawLandmarks, setRawLandmarks] = useState<any[] | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confidence, setConfidence] = useState(0);
+  const [rawLandmarks, setRawLandmarks] = useState<HandLandmark[] | null>(null);
   const [faceLandmarks, setFaceLandmarks] = useState<any[] | null>(null);
   const [poseLandmarks, setPoseLandmarks] = useState<any[] | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
-  const [detailedData, setDetailedData] = useState<DetailedHandData>({ 
-    flexion: [0,0,0,0,0], wristRotation: 0, isFlat: true, spread: 0, jitter: 0, wristFlexion: 0
+  const [isCalibrating, setIsCalibrating] = useState(false);
+
+  const [metrics, setMetrics] = useState({ fps: 0, isHealthy: true });
+  const [detailedData, setDetailedData] = useState({
+    jitter: 0,
+    wristRotation: 0,
+    wristFlexion: 0,
+    flexion: [0, 0, 0, 0, 0]
   });
-  const [metrics, setMetrics] = useState({ fps: 0, stability: 0, isHealthy: false });
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const holisticRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
-  const fpsEMA = useRef(new EMA(0.1));
-  const lastFrameTime = useRef(performance.now());
-  const jitterEMA = useRef(new EMA(0.2));
+  
+  const classifierRef = useRef(new PoseClassifier());
+  const mapperRef = useRef(new TargetMapper());
+  const emaRef = useRef(new AdaptiveEMA());
 
-  const onResults = (results: any) => {
+  const frameCountRef = useRef(0);
+  const lastFpsUpdateRef = useRef(performance.now());
+  const lastWristPosRef = useRef<{x: number, y: number} | null>(null);
+  const isInitializingRef = useRef(false);
+
+  const calculateDetailedData = useCallback((landmarks: HandLandmark[]) => {
+    const wrist = landmarks[0];
+    const fingerTips = [4, 8, 12, 16, 20];
+    const fingerMcps = [2, 5, 9, 13, 17];
+    
+    const flexion = fingerTips.map((tipIdx, i) => {
+      const tip = landmarks[tipIdx];
+      const mcp = landmarks[fingerMcps[i]];
+      const dist = Math.sqrt(Math.pow(tip.x - mcp.x, 2) + Math.pow(tip.y - mcp.y, 2));
+      return Math.min(dist * 10, 1);
+    });
+
+    let jitter = 0;
+    if (lastWristPosRef.current) {
+      jitter = Math.sqrt(
+        Math.pow(wrist.x - lastWristPosRef.current.x, 2) + 
+        Math.pow(wrist.y - lastWristPosRef.current.y, 2)
+      );
+    }
+    lastWristPosRef.current = { x: wrist.x, y: wrist.y };
+
+    const middleMcp = landmarks[9];
+    const wristRotation = Math.atan2(middleMcp.y - wrist.y, middleMcp.x - wrist.x) * (180 / Math.PI) + 90;
+
+    return {
+      jitter,
+      wristRotation,
+      wristFlexion: wrist.z || 0,
+      flexion
+    };
+  }, []);
+
+  const onResults = useCallback((results: any) => {
+    frameCountRef.current++;
     const now = performance.now();
-    const dt = now - lastFrameTime.current;
-    lastFrameTime.current = now;
-    const smoothFps = fpsEMA.current.update(1000 / dt);
-
-    let currentConfidence = 0;
-
-    // Mão Direita (Principal para o FLINCH)
-    if (results.rightHandLandmarks) {
-      setIsHandDetected(true);
-      setRawLandmarks(results.rightHandLandmarks);
-      
-      const wrist = results.rightHandLandmarks[0];
-      const index = results.rightHandLandmarks[8];
-      const isPointing = index.y < results.rightHandLandmarks[6].y;
-      setCurrentPose(isPointing ? "POINT" : "OPEN");
-      
-      // Calculate a basic confidence score
-      // If landmarks are close to the edge, confidence drops
-      const edgeThreshold = 0.05;
-      const isNearEdge = wrist.x < edgeThreshold || wrist.x > (1 - edgeThreshold) || wrist.y < edgeThreshold || wrist.y > (1 - edgeThreshold);
-      
-      currentConfidence = isNearEdge ? 65 : 98;
-      setConfidence(currentConfidence);
-    } else {
-      setIsHandDetected(false);
-      setRawLandmarks(null);
-      setConfidence(0);
+    if (now - lastFpsUpdateRef.current > 1000) {
+      const currentFps = Math.round((frameCountRef.current * 1000) / (now - lastFpsUpdateRef.current));
+      setMetrics({ fps: currentFps, isHealthy: currentFps > 10 });
+      frameCountRef.current = 0;
+      lastFpsUpdateRef.current = now;
     }
 
-    // Face e Pose (Corpo)
     setFaceLandmarks(results.faceLandmarks || null);
     setPoseLandmarks(results.poseLandmarks || null);
 
-    setMetrics({
-      fps: Math.round(smoothFps),
-      stability: currentConfidence,
-      isHealthy: smoothFps > 15
-    });
-  };
+    const handLandmarks = results.rightHandLandmarks || results.leftHandLandmarks;
 
-  const startTracking = async () => {
-    const win = window as any;
-    if (!win.Holistic || !win.Camera) return;
+    if (handLandmarks && handLandmarks.length > 0) {
+      const landmarks = handLandmarks as HandLandmark[];
+      setIsHandDetected(true);
+      setRawLandmarks(landmarks);
+      
+      const timestamp = performance.now();
+      const classification = classifierRef.current.classify(landmarks);
+      setConfidence(Math.round(classification.confidence * 100));
+      
+      const pose = classification.pose !== "UNKNOWN" ? classification.pose : "OPEN";
+      const wrist = landmarks[0];
+      const smoothedWrist = emaRef.current.smooth(wrist, timestamp);
+      const target = mapperRef.current.mapTarget(smoothedWrist);
+
+      setCurrentPose(pose);
+      setCurrentTarget(target);
+      setDetailedData(calculateDetailedData(landmarks));
+    } else {
+      setIsHandDetected(false);
+      setRawLandmarks(null);
+      setCurrentPose('OPEN');
+      setCurrentTarget('C');
+      setConfidence(0);
+    }
+  }, [calculateDetailedData]);
+
+  const initializeHolistic = useCallback(async () => {
+    if (holisticRef.current || isInitializingRef.current) return;
+    isInitializingRef.current = true;
     
-    try {
-      if (!holisticRef.current) {
-        holisticRef.current = new win.Holistic({
-          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
-        });
-        holisticRef.current.setOptions({
-          modelComplexity: 1,
-          smoothLandmarks: true,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        });
-        holisticRef.current.onResults(onResults);
-      }
+    const win = window as any;
+    if (!win.Holistic) {
+      console.warn("Holistic script not loaded yet.");
+      isInitializingRef.current = false;
+      return;
+    }
 
-      if (!cameraRef.current && videoRef.current) {
-        cameraRef.current = new win.Camera(videoRef.current, {
-          onFrame: async () => holisticRef.current && await holisticRef.current.send({ image: videoRef.current }),
-          width: 640, height: 480
-        });
-        await cameraRef.current.start();
-        setIsCameraActive(true);
-      }
+    try {
+      const holistic = new win.Holistic({
+        locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1635989137/${file}`
+      });
+
+      holistic.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+
+      holistic.onResults(onResults);
+      holisticRef.current = holistic;
+      setIsReady(true);
+      setError(null);
     } catch (err) {
       console.error("Holistic init error:", err);
+      setError(err instanceof Error ? err.message : 'Holistic Init Error');
+    } finally {
+      isInitializingRef.current = false;
     }
-  };
+  }, [onResults]);
 
-  const stopTracking = () => {
-    if (cameraRef.current) cameraRef.current.stop();
-    cameraRef.current = null;
-    setIsCameraActive(false);
-  };
+  const startTracking = useCallback(async () => {
+    if (isTracking) return;
+    const win = window as any;
+    
+    if (!holisticRef.current) {
+      await initializeHolistic();
+    }
+
+    try {
+      if (videoRef.current && !cameraRef.current && win.Camera) {
+        cameraRef.current = new win.Camera(videoRef.current, {
+          onFrame: async () => {
+            const video = videoRef.current;
+            if (video && holisticRef.current && video.readyState >= 2 && video.videoWidth > 0) {
+              try {
+                await holisticRef.current.send({ image: video });
+              } catch (e) {
+                console.error("Holistic send error:", e);
+                // Don't crash the whole app, but maybe flag unhealthy
+                setMetrics(m => ({ ...m, isHealthy: false }));
+              }
+            }
+          },
+          width: 640,
+          height: 480
+        });
+        await cameraRef.current.start();
+        setIsTracking(true);
+      }
+    } catch (err) {
+      console.error("Camera start error:", err);
+      setError("Câmera indisponível ou permissão negada");
+    }
+  }, [isTracking, initializeHolistic]);
+
+  const stopTracking = useCallback(() => {
+    if (cameraRef.current) {
+      cameraRef.current.stop();
+      cameraRef.current = null;
+    }
+    setIsTracking(false);
+    setIsHandDetected(false);
+    setRawLandmarks(null);
+  }, []);
+
+  const toggleDebug = useCallback(() => setShowDebug(prev => !prev), []);
+
+  useEffect(() => {
+    initializeHolistic();
+    return () => {
+      if (cameraRef.current) cameraRef.current.stop();
+      if (holisticRef.current) holisticRef.current.close();
+    };
+  }, [initializeHolistic]);
 
   return (
     <MotionContext.Provider value={{ 
-      isCameraActive, confidence, isHandDetected, currentPose, rawLandmarks,
-      faceLandmarks, poseLandmarks, detailedData, metrics,
-      startTracking, stopTracking, videoRef, showDebug,
-      toggleDebug: () => setShowDebug(prev => !prev)
+      currentPose, 
+      currentTarget, 
+      isReady, 
+      isTracking,
+      isHandDetected,
+      showDebug,
+      error, 
+      videoRef, 
+      canvasRef,
+      confidence,
+      rawLandmarks,
+      faceLandmarks,
+      poseLandmarks,
+      metrics,
+      detailedData,
+      startTracking,
+      stopTracking,
+      toggleDebug,
+      isCalibrating
     }}>
       {children}
     </MotionContext.Provider>
   );
-};
-
-export const useMotion = () => {
-  const context = useContext(MotionContext);
-  if (!context) throw new Error('useMotion error');
-  return context;
-};
+}

@@ -8,8 +8,7 @@ export interface RunData {
   score: number;
   createdAt: number;
   replayLog?: {
-    ms: number;
-    stability: number[];
+    fullLog: any[];
   };
 }
 

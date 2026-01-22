@@ -1,19 +1,21 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLINCH. | Reaction Game</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="description" content="FLINCH - Neural Reaction Framework. High-octane computer vision gaming." />
+    <title>⚡ FLINCH - Neural Reaction Framework</title>
+    
+    <!-- MediaPipe Dependencies - Pinned versions for stability -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic@0.5.1635989137/holistic.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
     
-    <!-- MediaPipe Holistic - Complete Tracking -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-
     <script>
         tailwind.config = {
             theme: {
@@ -25,52 +27,43 @@
                             accent: '#ccff00', 
                             muted: '#1a1a1a',
                             surface: '#121212',
-                            danger: '#ff3333'
+                            danger: '#ff3333',
+                            neonGreen: '#00ff41',
+                            neonCyan: '#00d4ff',
+                            neonMagenta: '#ff00ff',
+                            neonOrange: '#ff9900'
                         }
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                         heading: ['Lexend', 'sans-serif']
-                    },
-                    animation: {
-                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'flicker': 'flicker 0.1s infinite'
-                    },
-                    keyframes: {
-                        flicker: {
-                            '0%, 100%': { opacity: 1 },
-                            '50%': { opacity: 0.8 },
-                        }
                     }
                 }
             }
         }
     </script>
     <style>
-        body {
-            background-color: #0a0a0a;
-            color: #ffffff;
-            margin: 0;
-            overflow-x: hidden;
-            -webkit-tap-highlight-color: transparent;
+        @layer base {
+            body {
+                @apply bg-brand-black text-white font-sans antialiased overflow-hidden selection:bg-brand-accent selection:text-brand-black;
+                -webkit-tap-highlight-color: transparent;
+            }
+            * {
+                @apply border-white/5;
+            }
         }
-        .aggressive-ease {
-            transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
-        }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "framer-motion": "https://esm.sh/framer-motion@^12.28.1",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0"
-  }
-}
-</script>
+    <script type="importmap">
+    {
+      "imports": {
+        "framer-motion": "https://esm.sh/framer-motion@^12.28.1",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3",
+        "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0"
+      }
+    }
+    </script>
 </head>
 <body>
     <div id="root"></div>

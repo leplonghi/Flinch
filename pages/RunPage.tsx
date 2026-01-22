@@ -4,248 +4,303 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OFFICIAL_CHALLENGES } from '../data/challenges';
 import { useMotion } from '../contexts/MotionContext';
-import { Pose } from '../types';
+import { useGame } from '../contexts/GameContext';
+import { Step, Challenge } from '../types';
 
 const RunPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { 
     startTracking, stopTracking, isHandDetected, currentPose, rawLandmarks, 
-    faceLandmarks, poseLandmarks, videoRef, confidence, metrics
+    faceLandmarks, videoRef, confidence, metrics
   } = useMotion();
+  const { startGame } = useGame();
   
-  const challenge = OFFICIAL_CHALLENGES.find(c => c.id === id);
-  const [gameState, setGameState] = useState<'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'FINISHED'>('LOBBY');
-  const [initStep, setInitStep] = useState('BRIEFING');
-  const [countdown, setCountdown] = useState(3);
-  const [combo, setCombo] = useState(0);
+  const challengeDef = OFFICIAL_CHALLENGES.find(c => c.id === id);
+  const [initStep, setInitStep] = useState<'BRIEFING' | 'SYNC' | 'ENGAGE'>('BRIEFING');
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [engageProgress, setEngageProgress] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const syncTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     startTracking();
-    return () => stopTracking();
-  }, []);
+    return () => {
+      stopTracking();
+      if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
+    };
+  }, [startTracking, stopTracking]);
+
+  // Lógica de Sincronização Automática ao detectar a mão
+  useEffect(() => {
+    if (initStep === 'SYNC' && isHandDetected && syncProgress < 100) {
+      const interval = window.setInterval(() => {
+        setSyncProgress(prev => {
+          if (prev >= 100) {
+            setInitStep('ENGAGE');
+            window.clearInterval(interval);
+            return 100;
+          }
+          return prev + 2;
+        });
+      }, 30);
+      return () => window.clearInterval(interval);
+    }
+  }, [initStep, isHandDetected, syncProgress]);
+
+  // Lógica de Gesto "FIST" para carregar o link final
+  useEffect(() => {
+    if (initStep === 'ENGAGE' && isHandDetected) {
+      const interval = window.setInterval(() => {
+        setEngageProgress(prev => {
+          if (currentPose === 'FIST') {
+            const next = prev + 5;
+            if (next >= 100) {
+              window.clearInterval(interval);
+              handleGameStart();
+              return 100;
+            }
+            return next;
+          }
+          return Math.max(0, prev - 10);
+        });
+      }, 50);
+      return () => window.clearInterval(interval);
+    }
+  }, [initStep, isHandDetected, currentPose]);
+
+  const handleGameStart = () => {
+    if (challengeDef) {
+      const challengeObj: Challenge = {
+        id: challengeDef.id,
+        name: challengeDef.name,
+        description: challengeDef.description,
+        icon: '⚡',
+        accentColor: challengeDef.accentColor,
+        startingHealth: 100,
+        totalDurationMs: challengeDef.durationMs,
+        bpm: challengeDef.bpm,
+        category: challengeDef.category,
+        steps: challengeDef.choreography.map((s, i) => ({
+          id: `${challengeDef.id}_step_${i}`,
+          type: s.type,
+          startTimeMs: s.timeMs,
+          durationMs: s.windowMs,
+          pose: s.pose,
+          target: s.target,
+          windowMs: s.windowMs
+        } as Step))
+      };
+      startGame(challengeObj, 'NORMAL');
+    }
+  };
 
   const getProjectedCoords = (p: any, video: HTMLVideoElement, cW: number, cH: number) => {
     const vW = video.videoWidth || 640;
     const vH = video.videoHeight || 480;
-    const videoAspectRatio = vW / vH;
-    const canvasAspectRatio = cW / cH;
-
-    let scale, offsetX, offsetY;
-    if (canvasAspectRatio > videoAspectRatio) {
-      scale = cW / vW;
-      offsetX = 0;
-      offsetY = (cH - (vH * scale)) / 2;
-    } else {
-      scale = cH / vH;
-      offsetX = (cW - (vW * scale)) / 2;
-      offsetY = 0;
-    }
-
-    const mirroredX = 1 - p.x;
-
+    const scale = Math.max(cW / vW, cH / vH);
+    const offsetX = (cW - vW * scale) / 2;
+    const offsetY = (cH - vH * scale) / 2;
     return {
-      x: (mirroredX * vW * scale) + offsetX,
-      y: (p.y * vH * scale) + offsetY
+      x: (1 - p.x) * vW * scale + offsetX,
+      y: p.y * vH * scale + offsetY
     };
   };
 
+  // Loop de Desenho do Overlay de Calibração
   useEffect(() => {
-    if (canvasRef.current && videoRef.current && containerRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      if (!ctx) return;
+    if (!canvasRef.current || !videoRef.current || !containerRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
 
-      const draw = () => {
-        const canvas = canvasRef.current;
-        const video = videoRef.current;
-        const container = containerRef.current;
-        if (!canvas || !video || !container) return;
+    const draw = () => {
+      const canvas = canvasRef.current!;
+      const video = videoRef.current!;
+      const container = containerRef.current!;
+      
+      const rect = container.getBoundingClientRect();
+      if (canvas.width !== rect.width || canvas.height !== rect.height) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+      }
 
-        const rect = container.getBoundingClientRect();
-        if (canvas.width !== rect.width || canvas.height !== rect.height) {
-          canvas.width = rect.width;
-          canvas.height = rect.height;
-        }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const accent = challengeDef?.accentColor || '#ccff00';
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const accent = challenge?.accentColor || '#ccff00';
-        
-        if (rawLandmarks) {
-          ctx.strokeStyle = accent;
-          ctx.lineWidth = 3;
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = accent;
+      if (rawLandmarks && rawLandmarks[0]) {
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = accent;
+
+        const fingerPaths = [[0,1,2,3,4], [0,5,6,7,8], [0,9,10,11,12], [0,13,14,15,16], [0,17,18,19,20], [5,9,13,17]];
+        fingerPaths.forEach(path => {
+          ctx.beginPath();
+          path.forEach((idx, i) => {
+            const p = getProjectedCoords(rawLandmarks[idx], video, canvas.width, canvas.height);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          });
+          ctx.stroke();
+        });
+
+        // Pulsos de Sincronização no Pulso (Calibration Phase)
+        if (initStep === 'SYNC' || initStep === 'ENGAGE') {
+          const wrist = getProjectedCoords(rawLandmarks[0], video, canvas.width, canvas.height);
+          const time = Date.now();
+          const pulse = Math.sin(time / 200) * 10;
           
-          const fingerPaths = [[0,1,2,3,4], [0,5,6,7,8], [0,9,10,11,12], [0,13,14,15,16], [0,17,18,19,20], [5,9,13,17]];
-          fingerPaths.forEach(path => {
-            ctx.beginPath();
-            path.forEach((idx, i) => {
-              const p = getProjectedCoords(rawLandmarks[idx], video, canvas.width, canvas.height);
-              if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-            });
-            ctx.stroke();
-          });
-        }
-
-        if (faceLandmarks) {
-          ctx.shadowBlur = 5;
-          ctx.lineWidth = 1.5;
-          ctx.strokeStyle = accent;
-
-          const leftEyeIndices = [33, 160, 158, 133, 153, 144];
+          // Primary Pulse Ring
           ctx.beginPath();
-          leftEyeIndices.forEach((idx, i) => {
-            const p = getProjectedCoords(faceLandmarks[idx], video, canvas.width, canvas.height);
-            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-          });
-          ctx.closePath();
+          ctx.arc(wrist.x, wrist.y, 50 + pulse, 0, Math.PI * 2);
+          ctx.setLineDash([10, 15]);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = `${accent}88`;
           ctx.stroke();
+          
+          // Rotating HUD elements around wrist during calibration
+          if (initStep === 'SYNC') {
+            const rotation = (time / 1000) % (Math.PI * 2);
+            
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = accent;
+            
+            // Draw four orbiting arcs
+            for (let i = 0; i < 4; i++) {
+              const angle = rotation + (i * Math.PI / 2);
+              ctx.beginPath();
+              ctx.arc(wrist.x, wrist.y, 60, angle, angle + 0.5);
+              ctx.stroke();
+            }
 
-          const rightEyeIndices = [362, 385, 387, 263, 373, 380];
-          ctx.beginPath();
-          rightEyeIndices.forEach((idx, i) => {
-            const p = getProjectedCoords(faceLandmarks[idx], video, canvas.width, canvas.height);
-            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-          });
-          ctx.closePath();
-          ctx.stroke();
-
-          const mouthIndices = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
-          ctx.beginPath();
-          mouthIndices.forEach((idx, i) => {
-            const p = getProjectedCoords(faceLandmarks[idx], video, canvas.width, canvas.height);
-            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-          });
-          ctx.stroke();
-        }
-
-        if (poseLandmarks && faceLandmarks) {
-          ctx.lineWidth = 4;
-          ctx.strokeStyle = accent;
-          ctx.setLineDash([5, 5]);
-
-          const nose = getProjectedCoords(faceLandmarks[1], video, canvas.width, canvas.height);
-          const leftShoulder = getProjectedCoords(poseLandmarks[11], video, canvas.width, canvas.height);
-          const rightShoulder = getProjectedCoords(poseLandmarks[12], video, canvas.width, canvas.height);
-          const neckBase = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-
-          ctx.beginPath();
-          ctx.moveTo(nose.x, nose.y + 20);
-          ctx.lineTo(neckBase.x, neckBase.y);
-          ctx.stroke();
+            // "CALIBRATING" Text near hand
+            ctx.fillStyle = accent;
+            ctx.font = '900 10px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.shadowBlur = 5;
+            ctx.fillText('CALIBRATING_NEURAL_LINK', wrist.x, wrist.y - 75 - pulse);
+          }
 
           ctx.setLineDash([]);
-          ctx.beginPath();
-          ctx.moveTo(leftShoulder.x, leftShoulder.y);
-          ctx.lineTo(rightShoulder.x, rightShoulder.y);
-          ctx.stroke();
-
-          [leftShoulder, rightShoulder].forEach(p => {
-             ctx.beginPath();
-             ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-             ctx.fillStyle = accent;
-             ctx.fill();
-          });
         }
-      };
+      }
 
-      const frameId = requestAnimationFrame(draw);
-      return () => cancelAnimationFrame(frameId);
-    }
-  }, [rawLandmarks, faceLandmarks, poseLandmarks, challenge]);
+      if (faceLandmarks) {
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 1;
+        [[33, 160, 158, 133, 153, 144], [362, 385, 387, 263, 373, 380]].forEach(eye => {
+          ctx.beginPath();
+          eye.forEach((idx, i) => {
+            const p = getProjectedCoords(faceLandmarks[idx], video, canvas.width, canvas.height);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          });
+          ctx.closePath();
+          ctx.stroke();
+        });
+      }
 
-  if (!challenge) return null;
+      requestAnimationFrame(draw);
+    };
 
-  const getStatusDetails = () => {
-    if (!isHandDetected) return { label: 'SYNC_LOSS', color: 'bg-brand-danger', shadow: 'shadow-[0_0_15px_#ff3333]', pulse: false };
-    if (confidence < 80) return { label: 'SIGNAL_WEAK', color: 'bg-orange-500', shadow: 'shadow-[0_0_15px_#f97316]', pulse: true };
-    return { label: 'SYNCED', color: 'bg-brand-accent', shadow: 'shadow-[0_0_15px_#ccff00]', pulse: true };
-  };
+    const frameId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frameId);
+  }, [rawLandmarks, faceLandmarks, challengeDef, initStep]);
 
-  const status = getStatusDetails();
+  if (!challengeDef) return null;
 
   return (
-    <div ref={containerRef} className="h-full bg-brand-black relative overflow-hidden select-none flex flex-col items-center">
+    <div ref={containerRef} className="h-full bg-brand-black relative overflow-hidden select-none">
       <div className="absolute inset-0 z-0">
-        <video ref={videoRef} className="w-full h-full object-cover scale-x-[-1]" autoPlay playsInline muted />
-        <div className="absolute inset-0 bg-brand-black/40 backdrop-blur-[2px]" />
+        <video ref={videoRef} className="w-full h-full object-cover scale-x-[-1] opacity-50" autoPlay playsInline muted />
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/40 to-brand-black/20" />
       </div>
 
       <canvas ref={canvasRef} className="absolute inset-0 z-10 pointer-events-none" />
 
-      {/* Neural Link Status Indicator */}
-      <div className="absolute top-8 left-0 right-0 z-50 flex justify-center px-8 pointer-events-none">
-        <motion.div 
-          animate={status.pulse ? { opacity: [0.7, 1, 0.7] } : { opacity: 1 }}
-          transition={status.pulse ? { repeat: Infinity, duration: 2 } : {}}
-          className={`flex items-center gap-4 bg-brand-black/80 backdrop-blur-xl border border-white/10 px-6 py-2.5 rounded-full shadow-2xl transition-all duration-300`}
-        >
-          <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full ${status.color} ${status.shadow} ${status.pulse ? 'animate-pulse' : ''}`} />
-            <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase italic">
-              {status.label}
-            </span>
-          </div>
-          <div className="h-4 w-px bg-white/10" />
-          <div className="flex flex-col">
-            <span className="text-[8px] font-black text-white/30 uppercase leading-none mb-0.5">Confidence</span>
-            <span className={`text-[10px] font-black italic tracking-tighter ${confidence > 80 ? 'text-brand-accent' : confidence > 50 ? 'text-orange-400' : 'text-brand-danger'}`}>
-              {Math.round(confidence)}%
-            </span>
-          </div>
-          <div className="h-4 w-px bg-white/10" />
-          <div className="flex flex-col">
-            <span className="text-[8px] font-black text-white/30 uppercase leading-none mb-0.5">FPS</span>
-            <span className="text-[10px] font-black italic text-white/80">{metrics.fps}</span>
-          </div>
-        </motion.div>
+      {/* Header Info */}
+      <div className="absolute top-12 left-0 right-0 z-50 px-8 flex justify-between items-start pointer-events-none">
+        <div className="space-y-1">
+          <span className="text-[10px] font-black text-brand-accent uppercase tracking-[0.4em]">Op_Ready</span>
+          <h2 className="text-3xl font-black italic text-white leading-none uppercase tracking-tighter">{challengeDef.name.split(' · ')[1]}</h2>
+        </div>
+        <div className="bg-brand-black/60 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-full flex items-center gap-3">
+          <div className={`w-2 h-2 rounded-full ${isHandDetected ? 'bg-brand-accent animate-pulse' : 'bg-brand-danger'}`} />
+          <span className="text-[10px] font-black text-white italic">{metrics.fps} FPS</span>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
         {initStep === 'BRIEFING' && (
           <motion.div 
-            key="brief" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="z-50 w-full max-w-sm px-8 pt-24 h-full flex flex-col items-center justify-center text-center"
+            key="briefing" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 z-40 flex flex-col items-center justify-center px-10 text-center space-y-12"
           >
-             <h1 className="text-4xl font-black italic text-white uppercase mb-4 tracking-tighter">
-               Neural Sync
-             </h1>
-             <p className="text-white/50 text-sm mb-12">Alinhe face e mãos para calibração de rede total.</p>
-             <button 
-              onClick={() => setInitStep('READY')} 
-              className="w-full h-16 bg-brand-accent text-brand-black font-black italic rounded-2xl shadow-2xl"
-             >
-               INICIAR CALIBRAÇÃO
-             </button>
+            <div className="space-y-4">
+              <h1 className="text-6xl font-black italic text-white uppercase tracking-tighter leading-none">NEURAL<br/>SYNC</h1>
+              <p className="text-white/40 text-sm font-medium leading-relaxed max-w-xs mx-auto">Sincronize sua interface biológica com a rede FLINCH para autorização de entrada.</p>
+            </div>
+            <button 
+              onClick={() => setInitStep('SYNC')}
+              className="w-full h-20 bg-brand-accent text-brand-black font-black italic rounded-[2rem] text-xl shadow-[0_20px_60px_rgba(204,255,0,0.3)]"
+            >
+              ESTABELECER LINK
+            </button>
           </motion.div>
         )}
 
-        {initStep === 'READY' && (
-           <div className="z-20 h-full flex flex-col items-center justify-center">
-             <motion.div 
-              initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="p-10 bg-brand-surface/80 border border-white/10 rounded-[3rem] backdrop-blur-3xl text-center"
-             >
-                <p className="text-3xl font-black italic text-white mb-2">PRONTO?</p>
-                <p className="text-[10px] font-black text-brand-accent uppercase tracking-widest animate-pulse">Sinal Holistic Detectado</p>
-                <button 
-                  onClick={() => { setInitStep('GAME'); setGameState('PLAYING'); }}
-                  className="mt-8 px-12 py-4 bg-brand-accent text-brand-black font-black italic rounded-full"
-                >
-                  CONECTAR
-                </button>
-             </motion.div>
-           </div>
+        {initStep === 'SYNC' && (
+          <motion.div 
+            key="sync" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-40 flex flex-col items-center justify-center text-center space-y-8"
+          >
+            <div className="relative">
+              <div className="w-48 h-48 rounded-full border-4 border-white/5 flex items-center justify-center">
+                <svg className="w-full h-full absolute inset-0 -rotate-90">
+                  <circle cx="96" cy="96" r="90" fill="none" stroke={challengeDef.accentColor} strokeWidth="8" strokeDasharray="565" strokeDashoffset={565 - (565 * syncProgress) / 100} strokeLinecap="round" className="transition-all duration-300" />
+                </svg>
+                <span className="text-4xl font-black italic text-white">{syncProgress}%</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black italic text-white uppercase tracking-tighter">
+                {isHandDetected ? 'SYNCHRONIZING...' : 'SEARCHING HAND...'}
+              </h3>
+              <p className="text-[10px] font-black text-brand-accent uppercase tracking-[0.4em] animate-pulse">
+                Aguardando Bio-Assinatura Estável
+              </p>
+            </div>
+          </motion.div>
         )}
 
-        {gameState === 'PLAYING' && (
-           <div className="z-20 w-full h-full flex flex-col items-center pt-32 pointer-events-none">
-              <h2 className="text-[10rem] font-black italic text-white drop-shadow-2xl leading-none">{combo}</h2>
-              <p className="text-sm font-black text-brand-accent tracking-[0.5em] uppercase">Holistic_Sync</p>
-           </div>
+        {initStep === 'ENGAGE' && (
+          <motion.div 
+            key="engage" initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 z-40 flex flex-col items-center justify-center text-center space-y-10"
+          >
+            <div className="w-40 h-40 bg-brand-surface/80 backdrop-blur-3xl rounded-[3rem] border border-white/10 flex items-center justify-center relative">
+               <motion.div 
+                 animate={currentPose === 'FIST' ? { scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] } : {}}
+                 transition={{ repeat: Infinity, duration: 1 }}
+                 className="text-6xl"
+               >
+                 ✊
+               </motion.div>
+               {engageProgress > 0 && (
+                 <svg className="absolute inset-0 -rotate-90 w-full h-full scale-110">
+                   <circle cx="80" cy="80" r="75" fill="none" stroke={challengeDef.accentColor} strokeWidth="6" strokeDasharray="471" strokeDashoffset={471 - (471 * engageProgress) / 100} strokeLinecap="round" />
+                 </svg>
+               )}
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">ENGAGE LINK</h3>
+              <p className="text-xs font-black text-brand-accent uppercase tracking-[0.3em] animate-pulse">
+                FECHE O PUNHO PARA INICIAR
+              </p>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
