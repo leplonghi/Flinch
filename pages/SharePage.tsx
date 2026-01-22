@@ -34,7 +34,7 @@ const SharePage: React.FC = () => {
   }, []);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`Beat my FLINCH score of ${score}ms! https://flinch.game/run/blink`);
+    navigator.clipboard.writeText(`Beat my FLINCH. score of ${score}ms! https://flinch.game/run/blink`);
     setShowToast(true);
   };
 
@@ -44,7 +44,7 @@ const SharePage: React.FC = () => {
       <div className="w-full p-6 flex justify-between items-center bg-brand-black/50 backdrop-blur-md z-20">
         <div className="flex flex-col">
           <span className="text-[10px] font-black text-brand-accent tracking-widest uppercase">Content Studio</span>
-          <h3 className="text-xl font-black font-heading italic italic">SHARE_CLIP.MP4</h3>
+          <h3 className="text-xl font-black font-heading italic">SHARE_CLIP.MP4</h3>
         </div>
         <button 
           onClick={() => navigate(-1)}

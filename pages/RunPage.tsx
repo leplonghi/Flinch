@@ -17,7 +17,6 @@ const RunPage: React.FC = () => {
   const challenge = OFFICIAL_CHALLENGES.find(c => c.id === id);
   const [gameState, setGameState] = useState<'LOBBY' | 'COUNTDOWN' | 'PLAYING' | 'FINISHED'>('LOBBY');
   const [initStep, setInitStep] = useState('BRIEFING');
-  const [confirmProgress, setConfirmProgress] = useState(0);
   const [countdown, setCountdown] = useState(3);
   const [combo, setCombo] = useState(0);
 
@@ -46,7 +45,6 @@ const RunPage: React.FC = () => {
       offsetY = 0;
     }
 
-    // Mirrored X logic
     const mirroredX = 1 - p.x;
 
     return {
@@ -55,7 +53,6 @@ const RunPage: React.FC = () => {
     };
   };
 
-  // Main Drawing Loop
   useEffect(() => {
     if (canvasRef.current && videoRef.current && containerRef.current) {
       const ctx = canvasRef.current.getContext('2d');
@@ -76,7 +73,6 @@ const RunPage: React.FC = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const accent = challenge?.accentColor || '#ccff00';
         
-        // 1. DESENHAR MÃO (Se detectada)
         if (rawLandmarks) {
           ctx.strokeStyle = accent;
           ctx.lineWidth = 3;
@@ -94,13 +90,11 @@ const RunPage: React.FC = () => {
           });
         }
 
-        // 2. DESENHAR FACE (Olhos e Boca)
         if (faceLandmarks) {
           ctx.shadowBlur = 5;
           ctx.lineWidth = 1.5;
           ctx.strokeStyle = accent;
 
-          // Olho Esquerdo (MediaPipe indices: 33, 160, 158, 133, 153, 144)
           const leftEyeIndices = [33, 160, 158, 133, 153, 144];
           ctx.beginPath();
           leftEyeIndices.forEach((idx, i) => {
@@ -110,7 +104,6 @@ const RunPage: React.FC = () => {
           ctx.closePath();
           ctx.stroke();
 
-          // Olho Direito (indices: 362, 385, 387, 263, 373, 380)
           const rightEyeIndices = [362, 385, 387, 263, 373, 380];
           ctx.beginPath();
           rightEyeIndices.forEach((idx, i) => {
@@ -120,7 +113,6 @@ const RunPage: React.FC = () => {
           ctx.closePath();
           ctx.stroke();
 
-          // Boca (Contorno Externo)
           const mouthIndices = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
           ctx.beginPath();
           mouthIndices.forEach((idx, i) => {
@@ -130,7 +122,6 @@ const RunPage: React.FC = () => {
           ctx.stroke();
         }
 
-        // 3. DESENHAR PESCOÇO E OMBROS
         if (poseLandmarks && faceLandmarks) {
           ctx.lineWidth = 4;
           ctx.strokeStyle = accent;
@@ -168,7 +159,6 @@ const RunPage: React.FC = () => {
 
   if (!challenge) return null;
 
-  // Determine status display details
   const getStatusDetails = () => {
     if (!isHandDetected) return { label: 'SYNC_LOSS', color: 'bg-brand-danger', shadow: 'shadow-[0_0_15px_#ff3333]', pulse: false };
     if (confidence < 80) return { label: 'SIGNAL_WEAK', color: 'bg-orange-500', shadow: 'shadow-[0_0_15px_#f97316]', pulse: true };
@@ -186,7 +176,7 @@ const RunPage: React.FC = () => {
 
       <canvas ref={canvasRef} className="absolute inset-0 z-10 pointer-events-none" />
 
-      {/* Enhanced Neural Link Status Indicator */}
+      {/* Neural Link Status Indicator */}
       <div className="absolute top-8 left-0 right-0 z-50 flex justify-center px-8 pointer-events-none">
         <motion.div 
           animate={status.pulse ? { opacity: [0.7, 1, 0.7] } : { opacity: 1 }}
