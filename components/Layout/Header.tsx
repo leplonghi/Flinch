@@ -33,7 +33,7 @@ const Header: React.FC = () => {
         onClick={handleLogoClick}
         className="text-2xl font-black font-heading tracking-tighter text-brand-white cursor-pointer select-none"
       >
-        FLINCH.
+        FLINCH
       </h1>
       
       <div className="flex gap-3 items-center">

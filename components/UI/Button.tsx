@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 
@@ -9,6 +8,8 @@ interface ButtonProps {
   className?: string;
   disabled?: boolean;
 }
+
+const MotionButton = motion.button as any;
 
 const Button: React.FC<ButtonProps> = ({ 
   children, 
@@ -25,7 +26,7 @@ const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <motion.button
+    <MotionButton
       whileTap={{ scale: 0.95, y: 1 }}
       whileHover={{ scale: 1.01 }}
       transition={{ type: "spring", stiffness: 500, damping: 25 }}
@@ -40,7 +41,7 @@ const Button: React.FC<ButtonProps> = ({
       `}
     >
       {children}
-    </motion.button>
+    </MotionButton>
   );
 };
 

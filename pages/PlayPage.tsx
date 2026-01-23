@@ -1,11 +1,14 @@
-
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/UI/Card';
 import { OFFICIAL_CHALLENGES } from '../data/challenges';
-// Removed unused ChallengeType import
-import { Pose } from '../types';
+import { Pose, ChallengeDefinition } from '../types';
+import { useGame } from '../contexts/GameContext';
+import { StatsPage } from './StatsPage';
+
+const MotionSection = motion.section as any;
+const MotionDiv = motion.div as any;
 
 const PoseIcon: React.FC<{ pose: Pose; size?: string; color?: string }> = ({ pose, size = "w-4 h-4", color = "currentColor" }) => {
   switch (pose) {
@@ -16,23 +19,30 @@ const PoseIcon: React.FC<{ pose: Pose; size?: string; color?: string }> = ({ pos
     case 'OPEN':
       return <svg className={size} fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15M6 10V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" /></svg>;
     case 'WAVE':
-      return <svg className={size} fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>;
+      return <svg className={size} fill="none" stroke={color} strokeWidth="2" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0M10 10.5V6a2 2 0 0 0-2-2v0M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>;
     default: return null;
   }
 };
 
 const PlayPage: React.FC = () => {
   const navigate = useNavigate();
+  const { playerProgress } = useGame();
+  const [showStats, setShowStats] = useState(false);
+
+  const handleChallengeSelect = (challengeDef: ChallengeDefinition) => {
+    // Navigate with difficulty info
+    navigate(`/run/${challengeDef.id}?difficulty=${challengeDef.difficulty}`);
+  };
 
   return (
     <div className="space-y-12 pb-20 pt-4">
-      <motion.section 
+      <MotionSection 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="relative px-1"
       >
         <div 
-          onClick={() => navigate('/run/blink')}
+          onClick={() => handleChallengeSelect(OFFICIAL_CHALLENGES[0])}
           className="relative h-72 rounded-[3.5rem] overflow-hidden bg-brand-accent cursor-pointer flex flex-col justify-end p-10 group active:scale-[0.98] transition-transform shadow-[0_30px_60px_-15px_rgba(204,255,0,0.3)]"
         >
           <div className="absolute top-10 right-10">
@@ -52,26 +62,32 @@ const PlayPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </motion.section>
+      </MotionSection>
 
       <section className="space-y-8">
         <div className="flex justify-between items-end px-2">
           <div className="space-y-1">
             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">Operações Disponíveis</h3>
-            <p className="text-sm font-black italic tracking-tight">SELECIONE SEU VETOR DE ATAQUE</p>
+            <p className="text-sm font-black italic tracking-tight uppercase">Selecione seu vetor de ataque</p>
           </div>
+          <button 
+            onClick={() => setShowStats(true)}
+            className="px-4 py-2 border-2 border-brand-accent/30 text-brand-accent text-[10px] font-black italic uppercase rounded-xl hover:bg-brand-accent/10 transition-colors"
+          >
+            Stats
+          </button>
         </div>
         
         <div className="grid grid-cols-1 gap-6">
           {OFFICIAL_CHALLENGES.map((challenge) => (
-            <motion.div 
+            <MotionDiv 
               key={challenge.id}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
             >
               <Card 
-                onClick={() => navigate(`/run/${challenge.id}`)}
+                onClick={() => handleChallengeSelect(challenge)}
                 className="group p-0 overflow-hidden border-white/5 bg-brand-surface/40 backdrop-blur-md hover:bg-brand-muted/80 transition-all duration-300 rounded-[2.5rem]"
               >
                 <div className="p-6 space-y-4">
@@ -119,15 +135,24 @@ const PlayPage: React.FC = () => {
                   </div>
                 </div>
               </Card>
-            </motion.div>
+            </MotionDiv>
           ))}
         </div>
       </section>
 
       <footer className="px-2 py-10 opacity-10 flex flex-col items-center">
-         <h1 className="text-4xl font-black italic tracking-tighter">FLINCH.</h1>
-         <p className="text-[8px] font-black uppercase tracking-[0.5em]">Global Reaction Network</p>
+         <h1 className="text-4xl font-black italic tracking-tighter text-white">FLINCH</h1>
+         <p className="text-[8px] font-black uppercase tracking-[0.5em] text-white">Global Reaction Network</p>
       </footer>
+
+      <AnimatePresence>
+        {showStats && (
+          <StatsPage 
+            progress={playerProgress} 
+            onClose={() => setShowStats(false)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

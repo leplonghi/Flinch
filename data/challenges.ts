@@ -1,26 +1,10 @@
 
 import { ChallengeDefinition, ChoreographyStep, Pose } from '../types';
 
-const generateChoreo = (bpm: number, bars: number, complexity: number, restrictedPoses?: Pose[]): ChoreographyStep[] => {
-  const steps: ChoreographyStep[] = [];
-  const beatMs = (60 / bpm) * 1000;
-  const poses = restrictedPoses || ["OPEN", "FIST", "POINT"];
-  const targets: any[] = ["C", "L", "R", "U", "D"];
-
-  for (let i = 1; i <= bars * 4; i++) {
-    const density = 0.15 + (complexity * 0.1);
-    if (Math.random() > density) continue;
-    
-    steps.push({
-      timeMs: i * beatMs,
-      pose: poses[Math.floor(Math.random() * Math.min(poses.length, complexity + 1))] as any,
-      target: targets[Math.floor(Math.random() * targets.length)],
-      windowMs: complexity === 1 ? 500 : 350,
-      type: "HIT"
-    });
-  }
-  return steps;
-};
+/**
+ * Helper para calcular tempos baseados em BPM para coreografias manuais
+ */
+const b = (beat: number, bpm: number) => Math.round((beat * 60) / bpm * 1000);
 
 export const OFFICIAL_CHALLENGES: ChallengeDefinition[] = [
   {
@@ -29,66 +13,90 @@ export const OFFICIAL_CHALLENGES: ChallengeDefinition[] = [
     type: 'BLINK',
     difficulty: 'EASY',
     category: 'PRECISION',
-    bpm: 80,
-    durationMs: 8000,
+    bpm: 75,
+    durationMs: 15000,
     accentColor: '#ccff00',
     description: 'Sincronização básica de reflexos oculares e manuais.',
-    detailedDescription: 'O primeiro passo para se tornar um operador. Mantenha a mão aberta e foque nos alvos centrais que surgem no compasso da rede.',
+    detailedDescription: 'O primeiro passo para se tornar um operador. Mantenha a mão aberta e foque nos alvos centrais.',
     posesRequired: ['OPEN'],
     xpReward: 150,
-    choreography: generateChoreo(80, 4, 1, ["OPEN"]),
+    visualAssets: {
+      contextImage: '/assets/challenges/blink/context.webp',
+      targetOverlayImage: '/assets/challenges/blink/targets.webp',
+      ghostGuideImage: '/assets/challenges/blink/ghost.webp'
+    },
+    choreography: [
+      { timeMs: b(1, 75), pose: 'OPEN', target: 'C', windowMs: 1200, type: 'HIT' },
+      { timeMs: b(2, 75), pose: 'OPEN', target: 'C', windowMs: 1200, type: 'HIT' },
+      { timeMs: b(3, 75), pose: 'OPEN', target: 'L', windowMs: 1200, type: 'HIT' },
+      { timeMs: b(4, 75), pose: 'OPEN', target: 'R', windowMs: 1200, type: 'HIT' },
+      { timeMs: b(5, 75), pose: 'OPEN', target: 'C', windowMs: 1200, type: 'HIT' },
+      { timeMs: b(7, 75), pose: 'OPEN', target: 'U', windowMs: 1200, type: 'HIT' },
+      { timeMs: b(9, 75), pose: 'OPEN', target: 'D', windowMs: 1200, type: 'HIT' }
+    ],
     bestTime: '---',
     activePlayers: 1243
   },
   {
-    id: 'hold',
-    name: 'FLINCH · KINETIC LOCK',
-    type: 'HOLD',
+    id: 'combat-init',
+    name: 'FLINCH · PROTOCOL: STRIKE',
+    type: 'COMBAT',
     difficulty: 'MID',
-    category: 'STABILITY',
-    bpm: 105,
-    durationMs: 15000,
-    accentColor: '#00f0ff',
-    description: 'Teste de firmeza e transição de força bruta.',
-    detailedDescription: 'Alternância rápida entre punho cerrado e mão aberta. Requer estabilidade absoluta nos eixos laterais para não perder o link neural.',
+    category: 'VELOCITY',
+    bpm: 110,
+    durationMs: 25000,
+    accentColor: '#ff3333',
+    description: 'Simulação de combate tático com troca de poses.',
+    detailedDescription: 'Alterne entre defesa (OPEN) e ataque (FIST) em resposta aos vetores de ameaça.',
     posesRequired: ['OPEN', 'FIST'],
-    xpReward: 350,
-    choreography: generateChoreo(105, 8, 2, ["OPEN", "FIST"]),
+    xpReward: 400,
+    visualAssets: {
+      contextImage: '/assets/challenges/combat-init/context.webp',
+      targetOverlayImage: '/assets/challenges/combat-init/targets.webp',
+      ghostGuideImage: '/assets/challenges/combat-init/ghost.webp'
+    },
+    choreography: [
+      { timeMs: b(1, 110), pose: 'OPEN', target: 'C', windowMs: 800, type: 'HIT' },
+      { timeMs: b(2, 110), pose: 'FIST', target: 'C', windowMs: 800, type: 'HIT' },
+      { timeMs: b(3, 110), pose: 'OPEN', target: 'L', windowMs: 800, type: 'HIT' },
+      { timeMs: b(3.5, 110), pose: 'FIST', target: 'L', windowMs: 700, type: 'HIT' },
+      { timeMs: b(5, 110), pose: 'OPEN', target: 'R', windowMs: 800, type: 'HIT' },
+      { timeMs: b(5.5, 110), pose: 'FIST', target: 'R', windowMs: 700, type: 'HIT' },
+      { timeMs: b(7, 110), pose: 'FIST', target: 'U', windowMs: 600, type: 'SNAP' },
+      { timeMs: b(8, 110), pose: 'FIST', target: 'D', windowMs: 600, type: 'SNAP' }
+    ],
     bestTime: '---',
-    activePlayers: 842
+    activePlayers: 567
   },
   {
-    id: 'snap',
-    name: 'FLINCH · LASER STRIKE',
+    id: 'ghost-signal',
+    name: 'FLINCH · GHOST SIGNAL',
     type: 'SNAP',
     difficulty: 'PRO',
-    category: 'VELOCITY',
-    bpm: 132,
-    durationMs: 20000,
-    accentColor: '#ff0055',
-    description: 'Ataques direcionais em alta frequência.',
-    detailedDescription: 'Utilize o gesto de apontar para neutralizar vetores de dados. O ritmo é implacável e exige movimentação ampla do braço.',
-    posesRequired: ['OPEN', 'POINT', 'FIST'],
-    xpReward: 600,
-    choreography: generateChoreo(132, 10, 3),
-    bestTime: '---',
-    activePlayers: 531
-  },
-  {
-    id: 'chaos',
-    name: 'FLINCH · VOID DANCE',
-    type: 'DANCE',
-    difficulty: 'ELITE',
-    category: 'RHYTHM',
-    bpm: 172,
+    category: 'PRECISION',
+    bpm: 130,
     durationMs: 30000,
-    accentColor: '#ff00ff',
-    description: 'Sobrecarga sensorial completa.',
-    detailedDescription: 'A prova definitiva. Poses complexas, trocas instantâneas e alvos em todos os quadrantes. Apenas para operadores nível 40+.',
-    posesRequired: ['OPEN', 'FIST', 'POINT', 'WAVE'],
-    xpReward: 1200,
-    choreography: generateChoreo(172, 16, 5),
+    accentColor: '#00d4ff',
+    description: 'Rastreamento de sinais instáveis no espectro.',
+    detailedDescription: 'Exige o uso preciso do gesto POINT para travar em sinais que desaparecem rapidamente.',
+    posesRequired: ['POINT', 'PINCH'],
+    xpReward: 750,
+    visualAssets: {
+      contextImage: '/assets/challenges/ghost-signal/context.webp',
+      targetOverlayImage: '/assets/challenges/ghost-signal/targets.webp',
+      ghostGuideImage: '/assets/challenges/ghost-signal/ghost.webp'
+    },
+    choreography: [
+      { timeMs: b(1, 130), pose: 'POINT', target: 'L', windowMs: 450, type: 'HIT' },
+      { timeMs: b(2, 130), pose: 'POINT', target: 'R', windowMs: 450, type: 'HIT' },
+      { timeMs: b(3, 130), pose: 'PINCH', target: 'C', windowMs: 400, type: 'HIT' },
+      { timeMs: b(4, 130), pose: 'POINT', target: 'U', windowMs: 450, type: 'HIT' },
+      { timeMs: b(5, 130), pose: 'POINT', target: 'D', windowMs: 450, type: 'HIT' },
+      { timeMs: b(6, 130), pose: 'PINCH', target: 'C', windowMs: 400, type: 'HIT' },
+      { timeMs: b(7, 130), pose: 'POINT', target: 'L', windowMs: 400, type: 'SNAP' },
+      { timeMs: b(7.5, 130), pose: 'POINT', target: 'R', windowMs: 400, type: 'SNAP' }
+    ],
     bestTime: '---',
-    activePlayers: 92
+    activePlayers: 214
   }
 ];

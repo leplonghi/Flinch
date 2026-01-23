@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -8,6 +7,8 @@ interface ToastProps {
   onClose: () => void;
   type?: 'success' | 'error' | 'info';
 }
+
+const MotionDiv = motion.div as any;
 
 const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose, type = 'info' }) => {
   useEffect(() => {
@@ -27,7 +28,7 @@ const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose, type = 'info
     <AnimatePresence>
       {isVisible && (
         <div className="fixed top-12 left-0 right-0 z-[300] flex justify-center px-6 pointer-events-none">
-          <motion.div
+          <MotionDiv
             initial={{ y: -60, opacity: 0, scale: 0.9 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: -60, opacity: 0, scale: 0.9 }}
@@ -35,7 +36,7 @@ const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose, type = 'info
             className={`px-8 py-4 rounded-[2rem] font-black italic uppercase tracking-tighter text-sm pointer-events-auto ${colors[type]}`}
           >
             {message}
-          </motion.div>
+          </MotionDiv>
         </div>
       )}
     </AnimatePresence>

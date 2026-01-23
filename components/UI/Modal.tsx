@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,12 +8,14 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
+const MotionDiv = motion.div as any;
+
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -22,7 +23,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
             className="fixed inset-0 bg-brand-black/80 backdrop-blur-sm z-[100]"
           />
           <div className="fixed inset-0 flex items-center justify-center p-6 z-[101] pointer-events-none">
-            <motion.div
+            <MotionDiv
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -35,7 +36,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
                 </h3>
               )}
               {children}
-            </motion.div>
+            </MotionDiv>
           </div>
         </>
       )}

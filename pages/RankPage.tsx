@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +6,8 @@ import Button from '../components/UI/Button';
 import { firestoreService, RunData } from '../services/firestore';
 import { OFFICIAL_CHALLENGES } from '../data/challenges';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const MotionDiv = motion.div as any;
 
 const RankPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const RankPage: React.FC = () => {
       <div className="space-y-3 min-h-[400px] relative">
         <AnimatePresence mode="wait">
           {isLoading ? (
-            <motion.div 
+            <MotionDiv 
               key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -62,9 +63,9 @@ const RankPage: React.FC = () => {
             >
               <div className="w-12 h-12 border-2 border-brand-accent border-t-transparent rounded-full animate-spin" />
               <p className="text-[10px] font-black tracking-[0.4em] uppercase text-brand-accent animate-pulse">Syncing Grid...</p>
-            </motion.div>
+            </MotionDiv>
           ) : leaderboard.length === 0 ? (
-            <motion.div 
+            <MotionDiv 
               key="empty"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -80,16 +81,16 @@ const RankPage: React.FC = () => {
               <Button onClick={() => navigate(`/run/${selectedChallenge}`)} className="px-10 h-14 rounded-[1.5rem]">
                 START RUN
               </Button>
-            </motion.div>
+            </MotionDiv>
           ) : (
-            <motion.div 
+            <MotionDiv 
               key="list"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="space-y-3"
             >
               {leaderboard.map((run, idx) => (
-                <motion.div
+                <MotionDiv
                   key={run.id}
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
@@ -118,9 +119,9 @@ const RankPage: React.FC = () => {
                       <span className="text-[9px] font-bold text-brand-white/20 ml-1 uppercase">PTS</span>
                     </div>
                   </Card>
-                </motion.div>
+                </MotionDiv>
               ))}
-            </motion.div>
+            </MotionDiv>
           )}
         </AnimatePresence>
 

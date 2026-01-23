@@ -1,7 +1,8 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useMotion } from '../../contexts/MotionContext';
+
+const MotionDiv = motion.div as any;
 
 const DebugOverlay: React.FC = () => {
   const { metrics, currentPose, confidence, isHandDetected, showDebug, detailedData } = useMotion();
@@ -20,7 +21,7 @@ const DebugOverlay: React.FC = () => {
   const fingerNames = ['T', 'I', 'M', 'R', 'P'];
 
   return (
-    <motion.div
+    <MotionDiv
       initial={{ x: 50, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       className="fixed top-24 right-4 z-[100] bg-brand-black/95 border-2 border-white/10 p-5 rounded-[2rem] backdrop-blur-3xl shadow-2xl pointer-events-none w-48 font-mono"
@@ -52,7 +53,7 @@ const DebugOverlay: React.FC = () => {
             {detailedData.flexion.map((val, i) => (
               <div key={i} className="flex flex-col items-center gap-1 flex-1">
                 <div className="w-full bg-white/5 rounded-full h-8 relative overflow-hidden">
-                  <motion.div 
+                  <MotionDiv 
                     initial={false}
                     animate={{ height: `${val * 100}%` }}
                     className={`absolute bottom-0 left-0 right-0 ${val > 0.8 ? 'bg-brand-accent' : 'bg-white/40'}`}
@@ -71,7 +72,7 @@ const DebugOverlay: React.FC = () => {
           </div>
         )}
       </div>
-    </motion.div>
+    </MotionDiv>
   );
 };
 

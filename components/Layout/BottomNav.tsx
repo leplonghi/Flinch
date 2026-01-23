@@ -1,7 +1,8 @@
-
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+
+const MotionDiv = motion.div as any;
 
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ const BottomNav: React.FC = () => {
               </div>
               
               {isActive && (
-                <motion.div
+                <MotionDiv
                   layoutId="bubble"
                   className="absolute inset-0 bg-brand-accent/10 rounded-2xl -z-0"
                   transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
@@ -37,7 +38,7 @@ const BottomNav: React.FC = () => {
               )}
               
               {isActive && (
-                <motion.div
+                <MotionDiv
                   layoutId="indicator"
                   className="absolute -top-1 w-1 h-1 bg-brand-accent rounded-full"
                   transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}

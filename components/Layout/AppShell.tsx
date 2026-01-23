@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from './Header';
@@ -9,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface AppShellProps {
   children: React.ReactNode;
 }
+
+const MotionDiv = motion.div as any;
 
 const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const location = useLocation();
@@ -21,7 +22,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
     <div className="flex flex-col h-[100dvh] max-w-md mx-auto bg-brand-black shadow-[0_0_100px_rgba(0,0,0,0.5)] relative overflow-hidden border-x border-white/5">
       <AnimatePresence mode="wait">
         {!isFullScreenMode && (
-          <motion.div
+          <MotionDiv
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -20, opacity: 0 }}
@@ -29,7 +30,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
             className="z-50"
           >
             <Header />
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
@@ -41,7 +42,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       <AnimatePresence mode="wait">
         {!isFullScreenMode && (
-          <motion.div
+          <MotionDiv
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
@@ -49,7 +50,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
             className="z-50"
           >
             <BottomNav />
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
       

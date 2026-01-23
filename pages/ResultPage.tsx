@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { motion, animate } from 'framer-motion';
@@ -7,6 +6,9 @@ import Button from '../components/UI/Button';
 import Card from '../components/UI/Card';
 import Progress from '../components/UI/Progress';
 import { firestoreService } from '../services/firestore';
+
+const MotionHeader = motion.header as any;
+const MotionDiv = motion.div as any;
 
 const CountingScore: React.FC<{ value: number }> = ({ value }) => {
   const [count, setCount] = useState(0);
@@ -42,20 +44,20 @@ const ResultPage: React.FC = () => {
 
   return (
     <div className="min-h-full flex flex-col pb-24 pt-10 px-6 bg-brand-black overflow-x-hidden">
-      <motion.header 
+      <MotionHeader 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center space-y-4 mb-10"
       >
         <div className="relative inline-block">
-          <motion.div className="text-[8rem] font-black font-heading italic leading-none tracking-tighter text-brand-accent">
+          <MotionDiv className="text-[8rem] font-black font-heading italic leading-none tracking-tighter text-brand-accent">
             <CountingScore value={score} />
-          </motion.div>
+          </MotionDiv>
           <div className="absolute -bottom-2 right-0 bg-white text-brand-black font-black text-[9px] px-3 py-1 uppercase tracking-widest">
             TOTAL_STRIKE
           </div>
         </div>
-      </motion.header>
+      </MotionHeader>
 
       <div className="space-y-4">
         <Card className="p-6 bg-brand-surface/50 border-white/5 flex justify-between items-center">

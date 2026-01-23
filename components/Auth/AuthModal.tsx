@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import Button from '../UI/Button';
 
+// Use a typed constant for motion components to avoid JSX syntax errors with inline casting
+const MotionDiv = motion.div as any;
+
 const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, login } = useAuth();
 
@@ -11,7 +14,8 @@ const AuthModal: React.FC = () => {
     <AnimatePresence>
       {isAuthModalOpen && (
         <>
-          <motion.div
+          {/* Using MotionDiv constant instead of inline casting to fix syntax errors */}
+          <MotionDiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -19,7 +23,8 @@ const AuthModal: React.FC = () => {
             className="fixed inset-0 bg-brand-black/90 backdrop-blur-md z-[200]"
           />
           <div className="fixed inset-0 flex items-center justify-center p-6 z-[201] pointer-events-none">
-            <motion.div
+            {/* Using MotionDiv constant instead of inline casting to fix syntax errors */}
+            <MotionDiv
               initial={{ scale: 0.9, opacity: 0, y: 40 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 40 }}
@@ -31,6 +36,7 @@ const AuthModal: React.FC = () => {
                    <span className="text-brand-black text-3xl font-black italic">F</span>
                 </div>
                 <h2 className="text-3xl font-black font-heading tracking-tighter italic">CLAIM YOUR IDENTITY</h2>
+                <h3 className="sr-only">Authentication</h3>
                 <p className="text-brand-white/40 text-sm mt-2">Save your runs and climb the global ranks.</p>
               </div>
 
@@ -64,7 +70,7 @@ const AuthModal: React.FC = () => {
               >
                 CONTINUE AS GUEST
               </button>
-            </motion.div>
+            </MotionDiv>
           </div>
         </>
       )}

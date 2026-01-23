@@ -1,107 +1,153 @@
 
-import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
-import { GameEngine } from '../services/GameEngine';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { Challenge, GameState, HitResult, Step, Achievement, PlayerProgress } from '../types';
 import { ProgressionSystem } from '../services/ProgressionSystem';
-import { useMotion } from './MotionContext';
-import type { Challenge, Difficulty, GameState, HitResultType, PlayerProgress, RunRecord } from '../types';
 
 interface GameContextType {
   isPlaying: boolean;
-  gameState: GameState | null;
-  lastHitResult: { type: string, label?: string, xp?: number } | null;
-  playerProgress: PlayerProgress;
-  startGame: (challenge: Challenge, difficulty: Difficulty) => void;
-  stopGame: () => void;
   currentChallenge: Challenge | null;
+  gameState: GameState | null;
+  lastHitResult: HitResult | null;
+  newAchievement: Achievement | null;
+  playerProgress: PlayerProgress;
+  startGame: (challenge: Challenge, difficulty: string) => void;
+  stopGame: () => void;
+  registerHit: (result: HitResult) => void;
 }
 
-const GameContext = createContext<GameContextType | null>(null);
+const GameContext = createContext<GameContextType | undefined>(undefined);
 
-export function useGame() {
-  const context = useContext(GameContext);
-  if (!context) throw new Error('useGame must be used within GameProvider');
-  return context;
-}
-
-// Updated with optional children to fix JSX inference issues where children might not be detected correctly
-export function GameProvider({ children }: { children?: React.ReactNode }) {
-  const { currentPose, currentTarget } = useMotion();
+export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [lastHitResult, setLastHitResult] = useState<any | null>(null);
-  const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(ProgressionSystem.initializeProgress());
   const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [lastHitResult, setLastHitResult] = useState<HitResult | null>(null);
+  const [newAchievement, setNewAchievement] = useState<Achievement | null>(null);
+  const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(ProgressionSystem.load());
+  
+  const gameTimerRef = useRef<number | null>(null);
 
-  const engineRef = useRef<GameEngine | null>(null);
-  const frameRef = useRef<number | null>(null);
-
-  const stopGame = useCallback(() => {
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    if (engineRef.current) {
-      if (engineRef.current.isComplete()) {
-        const record = engineRef.current.generateRunRecord();
-        const stats = engineRef.current.getState().stats;
-        const updatedProgress = ProgressionSystem.updateProgressFromRun(playerProgress, record, stats);
-        setPlayerProgress(updatedProgress);
-      }
-      engineRef.current.dispose();
-    }
-    setIsPlaying(false);
-    engineRef.current = null;
-  }, [playerProgress]);
-
-  const gameLoop = useCallback(() => {
-    if (!engineRef.current || !isPlaying) return;
-
-    const result = engineRef.current.update(currentPose, currentTarget);
-    const state = engineRef.current.getState();
-    
-    setGameState(state);
-
-    if (result) {
-      if (result.type === 'CHALLENGE_COMPLETE' || state.isGameOver) {
-        stopGame();
-        return;
-      }
-      setLastHitResult(result);
-      // Auto clear feedback after short time
-      setTimeout(() => setLastHitResult(null), 800);
-    }
-
-    frameRef.current = requestAnimationFrame(gameLoop);
-  }, [currentPose, currentTarget, isPlaying, stopGame]);
-
-  useEffect(() => {
-    if (isPlaying) {
-      frameRef.current = requestAnimationFrame(gameLoop);
-    }
-    return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    };
-  }, [isPlaying, gameLoop]);
-
-  const startGame = (challenge: Challenge, difficulty: Difficulty) => {
-    if (engineRef.current) engineRef.current.dispose();
-    
-    const engine = new GameEngine(challenge, difficulty);
-    engineRef.current = engine;
-    setCurrentChallenge(challenge);
-    engine.start();
+  const startGame = (challenge: Challenge, difficulty: string) => {
     setIsPlaying(true);
-    setGameState(engine.getState());
+    setCurrentChallenge(challenge);
+    setGameState({
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      health: 100,
+      currentStepIndex: 0,
+      isGameOver: false,
+      currentTimeMs: 0,
+      perfects: 0,
+      goods: 0,
+      misses: 0
+    });
+    setLastHitResult(null);
+
+    const startTime = performance.now();
+    const tick = () => {
+      const now = performance.now();
+      const elapsed = now - startTime;
+      
+      setGameState(prev => {
+        if (!prev || prev.isGameOver) return prev;
+        
+        const currentStep = challenge.steps[prev.currentStepIndex];
+        const nextStepIdx = prev.currentStepIndex + 1;
+        
+        if (currentStep && elapsed > (currentStep.startTimeMs + currentStep.durationMs) && nextStepIdx < challenge.steps.length) {
+          return { ...prev, currentStepIndex: nextStepIdx, currentTimeMs: elapsed };
+        }
+
+        if (elapsed > challenge.totalDurationMs) {
+          const finishedState = { ...prev, isGameOver: true, currentTimeMs: elapsed };
+          finishGame(finishedState);
+          return finishedState;
+        }
+
+        return { ...prev, currentTimeMs: elapsed };
+      });
+
+      if (gameTimerRef.current !== null) {
+        gameTimerRef.current = requestAnimationFrame(tick);
+      }
+    };
+    gameTimerRef.current = requestAnimationFrame(tick);
+  };
+
+  const finishGame = (finalState: GameState) => {
+    setIsPlaying(false);
+    if (gameTimerRef.current) {
+      cancelAnimationFrame(gameTimerRef.current);
+      gameTimerRef.current = null;
+    }
+    
+    if (currentChallenge) {
+      const oldAchievementsCount = playerProgress.achievements?.length || 0;
+      const updatedProgress = ProgressionSystem.updateProgressFromRun(currentChallenge, finalState);
+      
+      setPlayerProgress(updatedProgress);
+      
+      const newAchievements = updatedProgress.achievements || [];
+      if (newAchievements.length > oldAchievementsCount) {
+        // Show the most recent one
+        setNewAchievement(newAchievements[newAchievements.length - 1]);
+        setTimeout(() => setNewAchievement(null), 6000);
+      }
+    }
+  };
+
+  const stopGame = () => {
+    setIsPlaying(false);
+    if (gameTimerRef.current) {
+      cancelAnimationFrame(gameTimerRef.current);
+      gameTimerRef.current = null;
+    }
+  };
+
+  const registerHit = (result: HitResult) => {
+    setLastHitResult(result);
+    setGameState(prev => {
+      if (!prev) return null;
+      
+      const isPerfect = result.type === 'PERFECT';
+      const isMiss = result.type === 'MISS';
+
+      const newCombo = isMiss ? 0 : prev.combo + 1;
+      const newHealth = isMiss ? Math.max(0, prev.health - 12) : Math.min(100, prev.health + 3);
+      
+      const nextState = {
+        ...prev,
+        score: prev.score + result.score,
+        combo: newCombo,
+        maxCombo: Math.max(prev.maxCombo, newCombo),
+        health: newHealth,
+        isGameOver: newHealth <= 0,
+        perfects: prev.perfects + (isPerfect ? 1 : 0),
+        goods: prev.goods + (result.type === 'GOOD' ? 1 : 0),
+        misses: prev.misses + (isMiss ? 1 : 0)
+      };
+
+      if (nextState.isGameOver && !prev.isGameOver) {
+        finishGame(nextState);
+      }
+
+      return nextState;
+    });
   };
 
   return (
     <GameContext.Provider value={{ 
-      isPlaying, 
-      gameState, 
-      lastHitResult, 
-      playerProgress, 
-      startGame, 
-      stopGame,
-      currentChallenge
+      isPlaying, currentChallenge, gameState, lastHitResult, 
+      newAchievement, playerProgress, startGame, stopGame, registerHit 
     }}>
       {children}
     </GameContext.Provider>
   );
-}
+};
+
+export const useGame = () => {
+  const context = useContext(GameContext);
+  if (!context) throw new Error('useGame must be used within GameProvider');
+  return context;
+};

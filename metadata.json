@@ -1,5 +1,5 @@
 {
-  "name": "FLINCH.",
+  "name": "FLINCH",
   "description": "A high-octane, modern reaction game focused on quick challenges and high-contrast visuals.",
   "requestFramePermissions": [
     "camera"

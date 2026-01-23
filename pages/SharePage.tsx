@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/UI/Button';
 import Toast from '../components/UI/Toast';
 
+// Use a typed constant for motion components to avoid JSX syntax errors with inline casting
+const MotionDiv = motion.div as any;
+
 type SharePhase = 'FOCUS' | 'FLINCH' | 'FREEZE' | 'SLOWMO' | 'OUTRO';
 
 const SharePage: React.FC = () => {
@@ -34,7 +37,7 @@ const SharePage: React.FC = () => {
   }, []);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`Beat my FLINCH. score of ${score}ms! https://flinch.game/run/blink`);
+    navigator.clipboard.writeText(`Beat my FLINCH score of ${score}ms! https://flinch.game/run/blink`);
     setShowToast(true);
   };
 
@@ -67,18 +70,20 @@ const SharePage: React.FC = () => {
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <AnimatePresence>
                 {phase === 'FOCUS' && (
-                  <motion.div 
+                  /* Using MotionDiv constant instead of inline casting to fix syntax errors */
+                  <MotionDiv 
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 1.2, opacity: 0 }}
                     className="w-32 h-32 rounded-full border-4 border-white/20 flex items-center justify-center"
                   >
                     <div className="w-4 h-4 rounded-full bg-white/40 animate-pulse" />
-                  </motion.div>
+                  </MotionDiv>
                 )}
                 
                 {(phase === 'FREEZE' || phase === 'SLOWMO') && (
-                  <motion.div 
+                  /* Using MotionDiv constant instead of inline casting to fix syntax errors */
+                  <MotionDiv 
                     initial={{ scale: 0.5, opacity: 0, rotate: -15 }}
                     animate={{ scale: 1, opacity: 1, rotate: 0 }}
                     className="text-center px-6"
@@ -90,18 +95,19 @@ const SharePage: React.FC = () => {
                     <p className="text-xl font-black uppercase bg-brand-black text-white px-4 py-2 inline-block">
                       {parseInt(score) < 200 ? "INSANE SPEED" : "I FLINCHED."}
                     </p>
-                  </motion.div>
+                  </MotionDiv>
                 )}
 
                 {phase === 'OUTRO' && (
-                  <motion.div 
+                  /* Using MotionDiv constant instead of inline casting to fix syntax errors */
+                  <MotionDiv 
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     className="text-center"
                   >
-                    <h2 className="text-4xl font-black font-heading italic mb-2 tracking-tighter text-brand-accent">FLINCH.</h2>
+                    <h2 className="text-4xl font-black font-heading italic mb-2 tracking-tighter text-brand-accent">FLINCH</h2>
                     <p className="text-xs font-bold text-white/40 uppercase tracking-[0.3em]">BEAT MY SCORE</p>
-                  </motion.div>
+                  </MotionDiv>
                 )}
               </AnimatePresence>
             </div>
@@ -116,7 +122,8 @@ const SharePage: React.FC = () => {
           {/* Glitch / Filter Effects */}
           <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
             {phase === 'SLOWMO' && (
-               <motion.div 
+               /* Using MotionDiv constant instead of inline casting to fix syntax errors */
+               <MotionDiv 
                  animate={{ opacity: [0, 0.2, 0] }}
                  transition={{ repeat: Infinity, duration: 0.1 }}
                  className="absolute inset-0 bg-brand-accent mix-blend-overlay" 

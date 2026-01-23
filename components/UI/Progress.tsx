@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 
@@ -8,10 +7,12 @@ interface ProgressProps {
   className?: string;
 }
 
+const MotionDiv = motion.div as any;
+
 const Progress: React.FC<ProgressProps> = ({ value, color = 'bg-brand-accent', className = '' }) => {
   return (
     <div className={`h-2 w-full bg-brand-white/10 rounded-full overflow-hidden ${className}`}>
-      <motion.div
+      <MotionDiv
         initial={{ width: 0 }}
         animate={{ width: `${value}%` }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
